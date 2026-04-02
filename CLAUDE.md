@@ -39,7 +39,7 @@ cd ../plantogether-common && mvn clean install
 
 ## Architecture
 
-Spring Boot 3.3.6 microservice (Java 21). Manages destination proposals, voting, and comments for trips.
+Spring Boot 3.3.6 microservice (Java 25). Manages destination proposals, voting, and comments for trips.
 
 **Ports:** REST `8083` · gRPC `9083` (server — reserved for future consumers)
 
