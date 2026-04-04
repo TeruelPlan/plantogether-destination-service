@@ -1,83 +1,83 @@
 # Destination Service
 
-> Service de gestion des propositions et votes de destinations
+> Destination proposal and voting management service
 
-## Rôle dans l'architecture
+## Role in the Architecture
 
-Le Destination Service gère les propositions collectives de destinations de voyage. Les participants proposent des lieux
-avec descriptions, photos et estimations budgétaires. Le groupe vote pour choisir la destination finale. Chaque
-opération est sécurisée par une vérification d'appartenance au trip via gRPC.
+The Destination Service manages collective destination proposals for trips. Participants propose places
+with descriptions, photos, and budget estimates. The group votes to choose the final destination. Each
+operation is secured by a trip membership check via gRPC.
 
-## Fonctionnalités
+## Features
 
-- Proposition de destinations (nom, description, image, budget estimé, URL externe)
-- Vote pour une destination (un vote par utilisateur — rank nullable pour le mode classement)
-- Commentaires sur les propositions
-- Vérification d'appartenance au trip via gRPC (TripService.CheckMembership)
-- Publication d'événements `vote.events` vers RabbitMQ
+- Destination proposals (name, description, image, estimated budget, external URL)
+- Voting for a destination (one vote per user — nullable rank for ranking mode)
+- Comments on proposals
+- Trip membership verification via gRPC (TripService.IsMember)
+- Publishing `vote.cast` events to RabbitMQ
 
-## Endpoints REST
+## REST Endpoints
 
-| Méthode | Endpoint | Description |
-|---------|----------|-------------|
-| POST | `/api/v1/trips/{tripId}/destinations` | Proposer une destination |
-| GET | `/api/v1/trips/{tripId}/destinations` | Liste + résultats de vote |
-| POST | `/api/v1/destinations/{id}/vote` | Voter pour une destination |
-| DELETE | `/api/v1/destinations/{id}/vote` | Retirer son vote |
-| POST | `/api/v1/destinations/{id}/comments` | Commenter une proposition |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/trips/{tripId}/destinations` | Propose a destination |
+| GET | `/api/v1/trips/{tripId}/destinations` | List + vote results |
+| POST | `/api/v1/destinations/{id}/vote` | Vote for a destination |
+| DELETE | `/api/v1/destinations/{id}/vote` | Retract vote |
+| POST | `/api/v1/destinations/{id}/comments` | Comment on a proposal |
 
 ## gRPC Client
 
-- `TripService.CheckMembership(tripId, userId)` — vérifie l'appartenance avant toute opération
+- `TripService.IsMember(tripId, deviceId)` — verifies membership before every operation
 
-## Modèle de données (`db_destination`)
+## Data Model (`db_destination`)
 
 **destination**
 
-| Colonne | Type | Description |
-|---------|------|-------------|
-| `id` | UUID PK | Identifiant unique (UUID v7) |
-| `trip_id` | UUID NOT NULL | Référence au trip |
-| `name` | VARCHAR(255) NOT NULL | Nom de la destination |
-| `description` | TEXT NULLABLE | Description libre |
-| `image_key` | VARCHAR(500) NULLABLE | Clé MinIO de la photo |
-| `estimated_budget` | DECIMAL NULLABLE | Budget estimé |
-| `currency` | VARCHAR(3) NULLABLE | Devise (ISO 4217) |
-| `external_url` | VARCHAR(512) NULLABLE | Lien externe (guide, réservation) |
-| `proposed_by` | UUID NOT NULL | keycloak_id du proposant |
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | UUID PK | Unique identifier (UUID v7) |
+| `trip_id` | UUID NOT NULL | Trip reference |
+| `name` | VARCHAR(255) NOT NULL | Destination name |
+| `description` | TEXT NULLABLE | Free-form description |
+| `image_key` | VARCHAR(500) NULLABLE | MinIO key for photo |
+| `estimated_budget` | DECIMAL NULLABLE | Estimated budget |
+| `currency` | VARCHAR(3) NULLABLE | Currency (ISO 4217) |
+| `external_url` | VARCHAR(512) NULLABLE | External link (guide, booking) |
+| `proposed_by` | UUID NOT NULL | device_id of the proposer |
 | `created_at` | TIMESTAMP NOT NULL | |
 | `updated_at` | TIMESTAMP NOT NULL | |
 
 **destination_vote**
 
-| Colonne | Type | Description |
-|---------|------|-------------|
+| Column | Type | Description |
+|--------|------|-------------|
 | `id` | UUID PK | |
 | `destination_id` | UUID NOT NULL FK→destination | |
-| `keycloak_id` | UUID NOT NULL | Votant |
-| `rank` | INT NULLABLE | Rang (pour le mode classement) |
+| `device_id` | UUID NOT NULL | Voter device UUID |
+| `rank` | INT NULLABLE | Rank (for ranking mode) |
 
-Contrainte unique : `(destination_id, keycloak_id)` — un vote par destination par utilisateur
+Unique constraint: `(destination_id, device_id)` — one vote per destination per user
 
 **destination_comment**
 
-| Colonne | Type | Description |
-|---------|------|-------------|
+| Column | Type | Description |
+|--------|------|-------------|
 | `id` | UUID PK | |
 | `destination_id` | UUID NOT NULL FK→destination | |
-| `keycloak_id` | UUID NOT NULL | Auteur du commentaire |
-| `content` | TEXT NOT NULL | Contenu |
+| `device_id` | UUID NOT NULL | Comment author device UUID |
+| `content` | TEXT NOT NULL | Content |
 | `created_at` | TIMESTAMP NOT NULL | |
 
-## Événements RabbitMQ (Exchange : `plantogether.events`)
+## RabbitMQ Events (Exchange: `plantogether.events`)
 
-**Publie :**
+**Publishes:**
 
-| Routing Key | Déclencheur |
-|-------------|-------------|
-| `vote.cast` | Vote enregistré ou modifié |
+| Routing Key | Trigger |
+|-------------|---------|
+| `vote.cast` | Vote recorded or modified |
 
-**Consomme :** aucun
+**Consumes:** none
 
 ## Configuration
 
@@ -104,29 +104,30 @@ grpc:
     port: 9083
 ```
 
-## Lancer en local
+## Running Locally
 
 ```bash
-# Prérequis : docker compose --profile essential up -d
-# + plantogether-proto et plantogether-common installés
+# Prerequisites: docker compose up -d
+# + plantogether-proto and plantogether-common installed
 
 mvn spring-boot:run
 ```
 
-## Dépendances
+## Dependencies
 
-- **Keycloak 24+** : validation JWT
-- **PostgreSQL 16** (`db_destination`) : destinations, votes, commentaires
-- **RabbitMQ** : publication d'événements (`vote.cast`)
-- **Redis** : rate limiting (Bucket4j)
-- **Trip Service** (gRPC 9081) : vérification d'appartenance
-- **File Service** (gRPC 9088) : génération de presigned URLs pour les images
-- **plantogether-proto** : contrats gRPC (client)
-- **plantogether-common** : DTOs events, CorsConfig
+- **PostgreSQL 16** (`db_destination`): destinations, votes, comments
+- **RabbitMQ**: event publishing (`vote.cast`)
+- **Redis**: rate limiting (Bucket4j)
+- **Trip Service** (gRPC 9081): membership verification
+- **File Service** (gRPC 9088): presigned URL generation for images
+- **plantogether-proto**: gRPC contracts (client)
+- **plantogether-common**: event DTOs, DeviceIdFilter, SecurityAutoConfiguration, CorsConfig
 
-## Sécurité
+## Security
 
-- Tous les endpoints requièrent un token Bearer Keycloak valide
-- L'appartenance au trip est vérifiée via gRPC à chaque opération
-- Zero PII stockée (uniquement des `keycloak_id`)
-- La résolution des noms d'utilisateurs se fait côté Flutter (pas de PII côté serveur)
+- Anonymous device-based identity: `X-Device-Id` header on every request
+- `DeviceIdFilter` (from plantogether-common, auto-configured via `SecurityAutoConfiguration`) extracts the device UUID and sets the SecurityContext principal
+- No JWT, no Keycloak, no login, no sessions
+- Trip membership is verified via gRPC at each operation
+- Zero PII stored (only `device_id` references)
+- User name resolution is performed client-side by Flutter (no PII on the server)
