@@ -23,7 +23,6 @@ mvn test -Dtest=ClassName
 # Docker build
 docker build -t plantogether-destination-service .
 docker run -p 8083:8083 -p 9083:9083 \
-  -e KEYCLOAK_URL=http://host.docker.internal:8180 \
   -e DB_HOST=host.docker.internal \
   -e DB_USER=postgres -e DB_PASSWORD=postgres \
   -e RABBITMQ_HOST=host.docker.internal \
@@ -39,7 +38,7 @@ cd ../plantogether-common && mvn clean install
 
 ## Architecture
 
-Spring Boot 3.3.6 microservice (Java 21). Manages destination proposals, voting, and comments for trips.
+Spring Boot 3.3.6 microservice (Java 25). Manages destination proposals, voting, and comments for trips.
 
 **Ports:** REST `8083` · gRPC `9083` (server — reserved for future consumers)
 
@@ -49,14 +48,14 @@ Spring Boot 3.3.6 microservice (Java 21). Manages destination proposals, voting,
 
 ```
 com.plantogether.destination/
-├── config/          # SecurityConfig, RabbitConfig
+├── config/          # RabbitConfig
 ├── controller/      # REST controllers
 ├── domain/          # JPA entities (Destination, DestinationVote, DestinationComment)
 ├── repository/      # Spring Data JPA
 ├── service/         # Business logic
 ├── dto/             # Request/Response DTOs (Lombok @Data @Builder)
 ├── grpc/
-│   └── client/      # TripGrpcClient (CheckMembership → trip-service:9081)
+│   └── client/      # TripGrpcClient (IsMember → trip-service:9081)
 └── event/
     └── publisher/   # RabbitMQ publishers (VoteCast)
 ```
@@ -68,33 +67,32 @@ com.plantogether.destination/
 | PostgreSQL 16 | `localhost:5432/plantogether_destination` | Primary persistence (db_destination) |
 | RabbitMQ | `localhost:5672` | Event publishing |
 | Redis | `localhost:6379` | Caching destination rankings |
-| Keycloak 24+ | `localhost:8180` realm `plantogether` | JWT validation via JWKS |
-| trip-service gRPC | `localhost:9081` | CheckMembership before every write |
+| trip-service gRPC | `localhost:9081` | IsMember before every write |
 
 
 ### Domain model (db_destination)
 
 **`destination`** — id (UUID), trip_id (UUID), name, description, image_key (MinIO key), estimated_budget
-(DECIMAL), currency (VARCHAR), external_url, proposed_by (Keycloak UUID), created_at, updated_at.
+(DECIMAL), currency (VARCHAR), external_url, proposed_by (device UUID), created_at, updated_at.
 
-**`destination_vote`** — id (UUID), destination_id (FK), keycloak_id, rank (nullable — used for ranking vote).
-Unique constraint: (destination_id, keycloak_id).
+**`destination_vote`** — id (UUID), destination_id (FK), device_id, rank (nullable — used for ranking vote).
+Unique constraint: (destination_id, device_id).
 
-**`destination_comment`** — id (UUID), destination_id (FK), keycloak_id, content (TEXT), created_at.
+**`destination_comment`** — id (UUID), destination_id (FK), device_id, content (TEXT), created_at.
 
 ### gRPC client
 
-Calls `TripGrpcService.CheckMembership(tripId, userId)` on trip-service:9081 before every write operation.
+Calls `TripGrpcService.IsMember(tripId, deviceId)` on trip-service:9081 before every write operation.
 
 ### REST API (`/api/v1/`)
 
 | Method | Endpoint | Auth | Notes |
 |---|---|---|---|
-| POST | `/api/v1/trips/{tripId}/destinations` | Bearer JWT + member | Propose a destination |
-| GET | `/api/v1/trips/{tripId}/destinations` | Bearer JWT + member | List destinations + vote results |
-| POST | `/api/v1/destinations/{id}/vote` | Bearer JWT + member | Vote (upsert) |
-| DELETE | `/api/v1/destinations/{id}/vote` | Bearer JWT + member | Retract vote |
-| POST | `/api/v1/destinations/{id}/comments` | Bearer JWT + member | Add comment |
+| POST | `/api/v1/trips/{tripId}/destinations` | X-Device-Id + member | Propose a destination |
+| GET | `/api/v1/trips/{tripId}/destinations` | X-Device-Id + member | List destinations + vote results |
+| POST | `/api/v1/destinations/{id}/vote` | X-Device-Id + member | Vote (upsert) |
+| DELETE | `/api/v1/destinations/{id}/vote` | X-Device-Id + member | Retract vote |
+| POST | `/api/v1/destinations/{id}/comments` | X-Device-Id + member | Add comment |
 
 ### RabbitMQ events
 
@@ -105,10 +103,13 @@ This service does **not** consume any events.
 
 ### Security
 
-- Stateless JWT via `KeycloakJwtConverter` — `realm_access.roles` → `ROLE_<ROLE>` Spring authorities
-- Principal name = Keycloak subject UUID
+- Anonymous device-based identity via `DeviceIdFilter` (from `plantogether-common`, auto-configured via `SecurityAutoConfiguration`)
+- `X-Device-Id` header extracted and set as SecurityContext principal
+- No JWT, no Keycloak, no login, no sessions
+- No SecurityConfig.java needed — `SecurityAutoConfiguration` handles everything
+- Principal name = device UUID string (`authentication.getName()`)
 - Public endpoints: `/actuator/health`, `/actuator/info`
-- Zero PII stored — only Keycloak UUIDs
+- Zero PII stored — only device UUIDs
 
 ### Environment variables
 
@@ -123,7 +124,5 @@ This service does **not** consume any events.
 | `RABBITMQ_PASSWORD` | `guest` |
 | `REDIS_HOST` | `localhost` |
 | `REDIS_PORT` | `6379` |
-| `KEYCLOAK_URL` | `http://localhost:8180` |
 | `TRIP_SERVICE_GRPC_HOST` | `localhost` |
 | `TRIP_SERVICE_GRPC_PORT` | `9081` |
-
