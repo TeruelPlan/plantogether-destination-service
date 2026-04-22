@@ -1,0 +1,38 @@
+package com.plantogether.destination.dto;
+
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.math.BigDecimal;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class ProposeDestinationRequest {
+
+    @NotBlank
+    @Size(max = 255)
+    private String name;
+
+    @Size(max = 2000)
+    private String description;
+
+    @Size(max = 500)
+    private String imageKey;
+
+    @DecimalMin(value = "0.00", inclusive = true)
+    private BigDecimal estimatedBudget;
+
+    @Pattern(regexp = "^[A-Z]{3}$", message = "currency must be ISO 4217")
+    private String currency;
+
+    @Size(max = 512)
+    private String externalUrl;
+}

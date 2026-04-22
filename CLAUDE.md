@@ -30,15 +30,20 @@ docker run -p 8083:8083 -p 9083:9083 \
   plantogether-destination-service
 ```
 
-**Prerequisites:** install shared libs first:
+**Prerequisites:**
+
+Local Maven builds resolve shared libs (`plantogether-parent`, `plantogether-bom`, `plantogether-common`,
+`plantogether-proto`) from GitHub Packages. Export a PAT with `read:packages` before running `mvn`:
+
 ```bash
-cd ../plantogether-proto && mvn clean install
-cd ../plantogether-common && mvn clean install
+export GITHUB_ACTOR=<your-github-username>
+export GITHUB_TOKEN=<your-PAT-with-read:packages>
+mvn -s .settings.xml clean package
 ```
 
 ## Architecture
 
-Spring Boot 3.3.6 microservice (Java 25). Manages destination proposals, voting, and comments for trips.
+Spring Boot 3.5.9 microservice (Java 21). Manages destination proposals, voting, and comments for trips.
 
 **Ports:** REST `8083` · gRPC `9083` (server — reserved for future consumers)
 
