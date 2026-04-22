@@ -35,9 +35,6 @@ public class TripGrpcClient {
     public void init() {
         channel = ManagedChannelBuilder.forAddress(host, port)
                 .usePlaintext()
-                .keepAliveTime(30, TimeUnit.SECONDS)
-                .keepAliveTimeout(10, TimeUnit.SECONDS)
-                .keepAliveWithoutCalls(true)
                 .build();
         stub = TripServiceGrpc.newBlockingStub(channel);
         log.info("TripGrpcClient initialized → {}:{}", host, port);
@@ -52,8 +49,7 @@ public class TripGrpcClient {
 
     public boolean isMember(String tripId, String deviceId) {
         try {
-            IsMemberResponse resp = stub.withWaitForReady()
-                    .withDeadlineAfter(2, TimeUnit.SECONDS)
+            IsMemberResponse resp = stub.withDeadlineAfter(2, TimeUnit.SECONDS)
                     .isMember(IsMemberRequest.newBuilder()
                             .setTripId(tripId)
                             .setDeviceId(deviceId)
@@ -67,11 +63,16 @@ public class TripGrpcClient {
                         HttpStatus.SERVICE_UNAVAILABLE,
                         "trip-service unavailable");
             }
-            throw new AccessDeniedException("Unable to verify trip membership");
+            if (code == Status.Code.PERMISSION_DENIED || code == Status.Code.NOT_FOUND) {
+                throw new AccessDeniedException("Unable to verify trip membership");
+            }
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "trip-service error: " + code);
         }
     }
 
-    public void setStub(TripServiceGrpc.TripServiceBlockingStub stub) {
+    void setStub(TripServiceGrpc.TripServiceBlockingStub stub) {
         this.stub = stub;
     }
 }

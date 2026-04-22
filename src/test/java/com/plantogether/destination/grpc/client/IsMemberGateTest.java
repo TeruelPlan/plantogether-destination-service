@@ -1,8 +1,7 @@
-package com.plantogether.destination.grpc;
+package com.plantogether.destination.grpc.client;
 
 import com.plantogether.destination.controller.DestinationController;
 import com.plantogether.destination.exception.GlobalExceptionHandler;
-import com.plantogether.destination.grpc.client.TripGrpcClient;
 import com.plantogether.destination.model.Destination;
 import com.plantogether.destination.repository.DestinationRepository;
 import com.plantogether.destination.service.DestinationService;
