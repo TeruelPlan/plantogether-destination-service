@@ -6,6 +6,7 @@ import com.plantogether.destination.dto.ProposeDestinationRequest;
 import com.plantogether.destination.grpc.client.TripGrpcClient;
 import com.plantogether.destination.model.Destination;
 import com.plantogether.destination.repository.DestinationRepository;
+import com.plantogether.destination.repository.DestinationVoteRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,6 +32,9 @@ class DestinationServiceTest {
 
     @Mock
     private DestinationRepository repository;
+
+    @Mock
+    private DestinationVoteRepository voteRepository;
 
     @Mock
     private TripGrpcClient tripGrpcClient;
@@ -102,6 +106,7 @@ class DestinationServiceTest {
                 .build();
         when(tripGrpcClient.isMember(tripId.toString(), deviceId)).thenReturn(true);
         when(repository.findByTripIdOrderByCreatedAtDesc(tripId)).thenReturn(List.of(d1, d2));
+        when(voteRepository.findByDestinationIdIn(any())).thenReturn(List.of());
 
         List<DestinationResponse> result = service.listDestinations(tripId, deviceId);
 

@@ -5,6 +5,7 @@ import com.plantogether.common.security.SecurityAutoConfiguration;
 import com.plantogether.destination.dto.DestinationResponse;
 import com.plantogether.destination.grpc.client.TripGrpcClient;
 import com.plantogether.destination.service.DestinationService;
+import com.plantogether.destination.service.DestinationVoteConfigService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -44,9 +45,12 @@ class DestinationControllerTest {
     @MockitoBean
     private TripGrpcClient tripGrpcClient;
 
+    @MockitoBean
+    private DestinationVoteConfigService destinationVoteConfigService;
+
     @AfterEach
     void tearDown() {
-        Mockito.reset(destinationService, tripGrpcClient);
+        Mockito.reset(destinationService, tripGrpcClient, destinationVoteConfigService);
     }
 
     private String validBody() {

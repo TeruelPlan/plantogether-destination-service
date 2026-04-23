@@ -60,14 +60,36 @@ public class TripGrpcClient {
                             .build());
             return resp.getIsMember();
         } catch (StatusRuntimeException e) {
-            Status.Code code = e.getStatus().getCode();
-            log.error("IsMember gRPC failed trip={} device={}: {}", tripId, deviceId, e.getStatus());
-            if (code == Status.Code.UNAVAILABLE || code == Status.Code.DEADLINE_EXCEEDED) {
-                throw new ResponseStatusException(
-                        HttpStatus.SERVICE_UNAVAILABLE,
-                        "trip-service unavailable");
-            }
+            handleStatusRuntimeException(e, tripId, deviceId);
             throw new AccessDeniedException("Unable to verify trip membership");
+        }
+    }
+
+    public IsMemberResponse isMemberWithRole(String tripId, String deviceId) {
+        try {
+            return stub.withWaitForReady()
+                    .withDeadlineAfter(2, TimeUnit.SECONDS)
+                    .isMember(IsMemberRequest.newBuilder()
+                            .setTripId(tripId)
+                            .setDeviceId(deviceId)
+                            .build());
+        } catch (StatusRuntimeException e) {
+            handleStatusRuntimeException(e, tripId, deviceId);
+            throw new AccessDeniedException("Unable to verify trip membership");
+        }
+    }
+
+    private void handleStatusRuntimeException(StatusRuntimeException e, String tripId, String deviceId) {
+        Status.Code code = e.getStatus().getCode();
+        log.error("IsMember gRPC failed trip={} device={}: {}", tripId, deviceId, e.getStatus());
+        switch (code) {
+            case UNAVAILABLE, DEADLINE_EXCEEDED ->
+                    throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "trip-service unavailable");
+            case INTERNAL, UNKNOWN -> throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "trip-service error");
+            case PERMISSION_DENIED -> throw new AccessDeniedException("Permission denied by trip-service");
+            default -> {
+                // Fall through — caller will throw AccessDeniedException.
+            }
         }
     }
 
