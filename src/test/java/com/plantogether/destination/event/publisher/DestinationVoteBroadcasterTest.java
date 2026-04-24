@@ -1,9 +1,18 @@
 package com.plantogether.destination.event.publisher;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+
 import com.plantogether.common.event.VoteCastEvent;
 import com.plantogether.destination.config.RabbitConfig;
 import com.plantogether.destination.event.VoteCastInternalEvent;
 import com.plantogether.destination.model.VoteMode;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
@@ -19,117 +28,110 @@ import org.springframework.transaction.support.AbstractPlatformTransactionManage
 import org.springframework.transaction.support.DefaultTransactionStatus;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-
 /**
- * Verifies AFTER_COMMIT semantics of DestinationVoteBroadcaster: the RabbitMQ message
- * is only sent once the surrounding transaction commits; a rollback suppresses it.
+ * Verifies AFTER_COMMIT semantics of DestinationVoteBroadcaster: the RabbitMQ message is only sent
+ * once the surrounding transaction commits; a rollback suppresses it.
  */
-@SpringBootTest(classes = {
-        DestinationVoteBroadcaster.class,
-        DestinationVoteBroadcasterTest.Config.class
-})
+@SpringBootTest(
+    classes = {DestinationVoteBroadcaster.class, DestinationVoteBroadcasterTest.Config.class})
 class DestinationVoteBroadcasterTest {
 
-    @Autowired
-    private ApplicationEventPublisher eventPublisher;
+  @Autowired private ApplicationEventPublisher eventPublisher;
 
-    @Autowired
-    private TransactionTemplate transactionTemplate;
+  @Autowired private TransactionTemplate transactionTemplate;
 
-    @MockitoBean
-    private RabbitTemplate rabbitTemplate;
+  @MockitoBean private RabbitTemplate rabbitTemplate;
 
-    @Test
-    void publishesVoteCastEvent_onCommit() {
-        UUID tripId = UUID.randomUUID();
-        UUID destinationId = UUID.randomUUID();
-        UUID deviceId = UUID.randomUUID();
+  @Test
+  void publishesVoteCastEvent_onCommit() {
+    UUID tripId = UUID.randomUUID();
+    UUID destinationId = UUID.randomUUID();
+    UUID deviceId = UUID.randomUUID();
 
-        transactionTemplate.executeWithoutResult(status -> {
-            eventPublisher.publishEvent(new VoteCastInternalEvent(
-                    tripId, destinationId, deviceId, VoteMode.SIMPLE, "YES"));
-            // Before commit: no message sent yet
-            verify(rabbitTemplate, never()).convertAndSend(
-                    eq(RabbitConfig.EXCHANGE), eq(RabbitConfig.ROUTING_KEY_VOTE_CAST), any(Object.class));
+    transactionTemplate.executeWithoutResult(
+        status -> {
+          eventPublisher.publishEvent(
+              new VoteCastInternalEvent(tripId, destinationId, deviceId, VoteMode.SIMPLE, "YES"));
+          // Before commit: no message sent yet
+          verify(rabbitTemplate, never())
+              .convertAndSend(
+                  eq(RabbitConfig.EXCHANGE),
+                  eq(RabbitConfig.ROUTING_KEY_VOTE_CAST),
+                  any(Object.class));
         });
 
-        ArgumentCaptor<VoteCastEvent> captor = ArgumentCaptor.forClass(VoteCastEvent.class);
-        verify(rabbitTemplate, times(1)).convertAndSend(
-                eq(RabbitConfig.EXCHANGE), eq(RabbitConfig.ROUTING_KEY_VOTE_CAST), captor.capture());
+    ArgumentCaptor<VoteCastEvent> captor = ArgumentCaptor.forClass(VoteCastEvent.class);
+    verify(rabbitTemplate, times(1))
+        .convertAndSend(
+            eq(RabbitConfig.EXCHANGE), eq(RabbitConfig.ROUTING_KEY_VOTE_CAST), captor.capture());
 
-        VoteCastEvent sent = captor.getValue();
-        assertThat(sent.getTripId()).isEqualTo(tripId.toString());
-        assertThat(sent.getDestinationId()).isEqualTo(destinationId.toString());
-        assertThat(sent.getDeviceId()).isEqualTo(deviceId.toString());
-        assertThat(sent.getVoteMode()).isEqualTo("SIMPLE");
-        assertThat(sent.getVoteValue()).isEqualTo("YES");
-        assertThat(sent.getOccurredAt()).isNotNull();
-    }
+    VoteCastEvent sent = captor.getValue();
+    assertThat(sent.getTripId()).isEqualTo(tripId.toString());
+    assertThat(sent.getDestinationId()).isEqualTo(destinationId.toString());
+    assertThat(sent.getDeviceId()).isEqualTo(deviceId.toString());
+    assertThat(sent.getVoteMode()).isEqualTo("SIMPLE");
+    assertThat(sent.getVoteValue()).isEqualTo("YES");
+    assertThat(sent.getOccurredAt()).isNotNull();
+  }
 
-    @Test
-    void noMessageSent_whenTransactionRollsBack() {
-        UUID tripId = UUID.randomUUID();
-        UUID destinationId = UUID.randomUUID();
-        UUID deviceId = UUID.randomUUID();
+  @Test
+  void noMessageSent_whenTransactionRollsBack() {
+    UUID tripId = UUID.randomUUID();
+    UUID destinationId = UUID.randomUUID();
+    UUID deviceId = UUID.randomUUID();
 
-        transactionTemplate.executeWithoutResult(status -> {
-            eventPublisher.publishEvent(new VoteCastInternalEvent(
-                    tripId, destinationId, deviceId, VoteMode.RANKING, "1"));
-            status.setRollbackOnly();
+    transactionTemplate.executeWithoutResult(
+        status -> {
+          eventPublisher.publishEvent(
+              new VoteCastInternalEvent(tripId, destinationId, deviceId, VoteMode.RANKING, "1"));
+          status.setRollbackOnly();
         });
 
-        verify(rabbitTemplate, never()).convertAndSend(
-                eq(RabbitConfig.EXCHANGE), eq(RabbitConfig.ROUTING_KEY_VOTE_CAST), any(Object.class));
+    verify(rabbitTemplate, never())
+        .convertAndSend(
+            eq(RabbitConfig.EXCHANGE), eq(RabbitConfig.ROUTING_KEY_VOTE_CAST), any(Object.class));
+  }
+
+  @TestConfiguration
+  @org.springframework.transaction.annotation.EnableTransactionManagement
+  static class Config {
+
+    @Bean
+    ConnectionFactory connectionFactory() {
+      return mock(ConnectionFactory.class);
     }
 
-    @TestConfiguration
-    @org.springframework.transaction.annotation.EnableTransactionManagement
-    static class Config {
-
-        @Bean
-        ConnectionFactory connectionFactory() {
-            return mock(ConnectionFactory.class);
+    @Bean
+    PlatformTransactionManager transactionManager() {
+      // Minimal in-memory transaction manager — no real datasource, just drives
+      // the Spring transaction synchronization lifecycle so AFTER_COMMIT listeners fire.
+      return new AbstractPlatformTransactionManager() {
+        @Override
+        protected Object doGetTransaction() {
+          return new Object();
         }
 
-        @Bean
-        PlatformTransactionManager transactionManager() {
-            // Minimal in-memory transaction manager — no real datasource, just drives
-            // the Spring transaction synchronization lifecycle so AFTER_COMMIT listeners fire.
-            return new AbstractPlatformTransactionManager() {
-                @Override
-                protected Object doGetTransaction() {
-                    return new Object();
-                }
-
-                @Override
-                protected void doBegin(Object transaction, org.springframework.transaction.TransactionDefinition definition) {
-                    // no-op
-                }
-
-                @Override
-                protected void doCommit(DefaultTransactionStatus status) {
-                    // no-op — synchronization layer triggers AFTER_COMMIT callbacks
-                }
-
-                @Override
-                protected void doRollback(DefaultTransactionStatus status) {
-                    // no-op
-                }
-            };
+        @Override
+        protected void doBegin(
+            Object transaction, org.springframework.transaction.TransactionDefinition definition) {
+          // no-op
         }
 
-        @Bean
-        TransactionTemplate transactionTemplate(PlatformTransactionManager tm) {
-            return new TransactionTemplate(tm);
+        @Override
+        protected void doCommit(DefaultTransactionStatus status) {
+          // no-op — synchronization layer triggers AFTER_COMMIT callbacks
         }
+
+        @Override
+        protected void doRollback(DefaultTransactionStatus status) {
+          // no-op
+        }
+      };
     }
+
+    @Bean
+    TransactionTemplate transactionTemplate(PlatformTransactionManager tm) {
+      return new TransactionTemplate(tm);
+    }
+  }
 }

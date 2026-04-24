@@ -13,18 +13,19 @@ import org.springframework.transaction.event.TransactionalEventListener;
 @RequiredArgsConstructor
 public class DestinationVoteBroadcaster {
 
-    private final RabbitTemplate rabbitTemplate;
+  private final RabbitTemplate rabbitTemplate;
 
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    public void onVoteCast(VoteCastInternalEvent internal) {
-        VoteCastEvent event = VoteCastEvent.builder()
-                .tripId(internal.tripId().toString())
-                .destinationId(internal.destinationId().toString())
-                .deviceId(internal.deviceId().toString())
-                .voteMode(internal.mode().name())
-                .voteValue(internal.voteValue())
-                .occurredAt(internal.occurredAt())
-                .build();
-        rabbitTemplate.convertAndSend(RabbitConfig.EXCHANGE, RabbitConfig.ROUTING_KEY_VOTE_CAST, event);
-    }
+  @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+  public void onVoteCast(VoteCastInternalEvent internal) {
+    VoteCastEvent event =
+        VoteCastEvent.builder()
+            .tripId(internal.tripId().toString())
+            .destinationId(internal.destinationId().toString())
+            .deviceId(internal.deviceId().toString())
+            .voteMode(internal.mode().name())
+            .voteValue(internal.voteValue())
+            .occurredAt(internal.occurredAt())
+            .build();
+    rabbitTemplate.convertAndSend(RabbitConfig.EXCHANGE, RabbitConfig.ROUTING_KEY_VOTE_CAST, event);
+  }
 }

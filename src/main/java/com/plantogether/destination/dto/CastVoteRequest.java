@@ -9,6 +9,6 @@ import lombok.*;
 @AllArgsConstructor
 public class CastVoteRequest {
 
-    @Min(1)
-    private Integer rank;
+  @Min(1)
+  private Integer rank;
 }

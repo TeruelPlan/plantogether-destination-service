@@ -1,8 +1,7 @@
 package com.plantogether.destination.dto;
 
-import lombok.*;
-
 import java.util.UUID;
+import lombok.*;
 
 @Data
 @Builder
@@ -10,7 +9,7 @@ import java.util.UUID;
 @AllArgsConstructor
 public class VoteResponse {
 
-    private UUID voterDeviceId;
-    private UUID destinationId;
-    private Integer rank;
+  private UUID voterDeviceId;
+  private UUID destinationId;
+  private Integer rank;
 }

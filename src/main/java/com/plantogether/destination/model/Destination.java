@@ -7,16 +7,15 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.UuidGenerator;
-
-import java.math.BigDecimal;
-import java.time.Instant;
-import java.util.UUID;
 
 @Entity
 @Table(name = "destination")
@@ -27,51 +26,51 @@ import java.util.UUID;
 @Builder
 public class Destination {
 
-    @Id
-    @GeneratedValue
-    @UuidGenerator(style = UuidGenerator.Style.TIME)
-    @Column(updatable = false, nullable = false)
-    private UUID id;
+  @Id
+  @GeneratedValue
+  @UuidGenerator(style = UuidGenerator.Style.TIME)
+  @Column(updatable = false, nullable = false)
+  private UUID id;
 
-    @Column(name = "trip_id", nullable = false)
-    private UUID tripId;
+  @Column(name = "trip_id", nullable = false)
+  private UUID tripId;
 
-    @Column(nullable = false, length = 255)
-    private String name;
+  @Column(nullable = false, length = 255)
+  private String name;
 
-    @Column(columnDefinition = "TEXT")
-    private String description;
+  @Column(columnDefinition = "TEXT")
+  private String description;
 
-    @Column(name = "image_key", length = 500)
-    private String imageKey;
+  @Column(name = "image_key", length = 500)
+  private String imageKey;
 
-    @Column(name = "estimated_budget", precision = 19, scale = 4)
-    private BigDecimal estimatedBudget;
+  @Column(name = "estimated_budget", precision = 19, scale = 4)
+  private BigDecimal estimatedBudget;
 
-    @Column(length = 3)
-    private String currency;
+  @Column(length = 3)
+  private String currency;
 
-    @Column(name = "external_url", length = 512)
-    private String externalUrl;
+  @Column(name = "external_url", length = 512)
+  private String externalUrl;
 
-    @Column(name = "proposed_by", nullable = false)
-    private UUID proposedBy;
+  @Column(name = "proposed_by", nullable = false)
+  private UUID proposedBy;
 
-    @Column(name = "created_at", nullable = false)
-    private Instant createdAt;
+  @Column(name = "created_at", nullable = false)
+  private Instant createdAt;
 
-    @Column(name = "updated_at", nullable = false)
-    private Instant updatedAt;
+  @Column(name = "updated_at", nullable = false)
+  private Instant updatedAt;
 
-    @PrePersist
-    void onCreate() {
-        Instant now = Instant.now();
-        if (createdAt == null) createdAt = now;
-        if (updatedAt == null) updatedAt = now;
-    }
+  @PrePersist
+  void onCreate() {
+    Instant now = Instant.now();
+    if (createdAt == null) createdAt = now;
+    if (updatedAt == null) updatedAt = now;
+  }
 
-    @PreUpdate
-    void onUpdate() {
-        updatedAt = Instant.now();
-    }
+  @PreUpdate
+  void onUpdate() {
+    updatedAt = Instant.now();
+  }
 }

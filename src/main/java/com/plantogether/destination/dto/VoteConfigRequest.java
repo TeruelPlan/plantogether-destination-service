@@ -10,6 +10,5 @@ import lombok.*;
 @AllArgsConstructor
 public class VoteConfigRequest {
 
-    @NotNull
-    private VoteMode mode;
+  @NotNull private VoteMode mode;
 }

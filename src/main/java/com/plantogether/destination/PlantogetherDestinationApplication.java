@@ -5,7 +5,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
 public class PlantogetherDestinationApplication {
-    public static void main(String[] args) {
-        SpringApplication.run(PlantogetherDestinationApplication.class, args);
-    }
+  public static void main(String[] args) {
+    SpringApplication.run(PlantogetherDestinationApplication.class, args);
+  }
 }

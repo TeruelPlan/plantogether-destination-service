@@ -7,6 +7,8 @@ import com.plantogether.destination.dto.VoteConfigResponse;
 import com.plantogether.destination.service.DestinationService;
 import com.plantogether.destination.service.DestinationVoteConfigService;
 import jakarta.validation.Valid;
+import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
@@ -19,41 +21,39 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
-import java.util.UUID;
-
 @RestController
 @RequestMapping("/api/v1/trips/{tripId}/destinations")
 @RequiredArgsConstructor
 public class DestinationController {
 
-    private final DestinationService destinationService;
-    private final DestinationVoteConfigService voteConfigService;
+  private final DestinationService destinationService;
+  private final DestinationVoteConfigService voteConfigService;
 
-    @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public DestinationResponse propose(Authentication authentication,
-                                       @PathVariable UUID tripId,
-                                       @Valid @RequestBody ProposeDestinationRequest request) {
-        return destinationService.proposeDestination(tripId, authentication.getName(), request);
-    }
+  @PostMapping
+  @ResponseStatus(HttpStatus.CREATED)
+  public DestinationResponse propose(
+      Authentication authentication,
+      @PathVariable UUID tripId,
+      @Valid @RequestBody ProposeDestinationRequest request) {
+    return destinationService.proposeDestination(tripId, authentication.getName(), request);
+  }
 
-    @GetMapping
-    public List<DestinationResponse> list(Authentication authentication,
-                                          @PathVariable UUID tripId) {
-        return destinationService.listDestinations(tripId, authentication.getName());
-    }
+  @GetMapping
+  public List<DestinationResponse> list(Authentication authentication, @PathVariable UUID tripId) {
+    return destinationService.listDestinations(tripId, authentication.getName());
+  }
 
-    @GetMapping("/vote-config")
-    public VoteConfigResponse getVoteConfig(Authentication authentication,
-                                            @PathVariable UUID tripId) {
-        return voteConfigService.getConfig(tripId, authentication.getName());
-    }
+  @GetMapping("/vote-config")
+  public VoteConfigResponse getVoteConfig(
+      Authentication authentication, @PathVariable UUID tripId) {
+    return voteConfigService.getConfig(tripId, authentication.getName());
+  }
 
-    @PutMapping("/vote-config")
-    public VoteConfigResponse setVoteConfig(Authentication authentication,
-                                            @PathVariable UUID tripId,
-                                            @Valid @RequestBody VoteConfigRequest request) {
-        return voteConfigService.upsertConfig(tripId, authentication.getName(), request.getMode());
-    }
+  @PutMapping("/vote-config")
+  public VoteConfigResponse setVoteConfig(
+      Authentication authentication,
+      @PathVariable UUID tripId,
+      @Valid @RequestBody VoteConfigRequest request) {
+    return voteConfigService.upsertConfig(tripId, authentication.getName(), request.getMode());
+  }
 }
