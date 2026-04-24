@@ -11,4 +11,6 @@ import java.util.UUID;
 public interface DestinationRepository extends JpaRepository<Destination, UUID> {
 
     List<Destination> findByTripIdOrderByCreatedAtDesc(UUID tripId);
+
+    long countByTripId(UUID tripId);
 }
