@@ -10,90 +10,90 @@ import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
+import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.util.concurrent.TimeUnit;
-
 @Slf4j
 @Component
 public class TripGrpcClient {
 
-    @Value("${grpc.trip-service.host:localhost}")
-    private String host;
+  @Value("${grpc.trip-service.host:localhost}")
+  private String host;
 
-    @Value("${grpc.trip-service.port:9081}")
-    private int port;
+  @Value("${grpc.trip-service.port:9081}")
+  private int port;
 
-    private ManagedChannel channel;
-    private TripServiceGrpc.TripServiceBlockingStub stub;
+  private ManagedChannel channel;
+  private TripServiceGrpc.TripServiceBlockingStub stub;
 
-    @PostConstruct
-    public void init() {
-        channel = ManagedChannelBuilder.forAddress(host, port)
-                .usePlaintext()
-                .keepAliveTime(30, TimeUnit.SECONDS)
-                .keepAliveTimeout(10, TimeUnit.SECONDS)
-                .keepAliveWithoutCalls(true)
-                .build();
-        stub = TripServiceGrpc.newBlockingStub(channel);
-        log.info("TripGrpcClient initialized → {}:{}", host, port);
+  @PostConstruct
+  public void init() {
+    channel =
+        ManagedChannelBuilder.forAddress(host, port)
+            .usePlaintext()
+            .keepAliveTime(30, TimeUnit.SECONDS)
+            .keepAliveTimeout(10, TimeUnit.SECONDS)
+            .keepAliveWithoutCalls(true)
+            .build();
+    stub = TripServiceGrpc.newBlockingStub(channel);
+    log.info("TripGrpcClient initialized → {}:{}", host, port);
+  }
+
+  @PreDestroy
+  public void shutdown() throws InterruptedException {
+    if (channel != null) {
+      channel.shutdownNow().awaitTermination(5, TimeUnit.SECONDS);
     }
+  }
 
-    @PreDestroy
-    public void shutdown() throws InterruptedException {
-        if (channel != null) {
-            channel.shutdownNow().awaitTermination(5, TimeUnit.SECONDS);
-        }
+  public boolean isMember(String tripId, String deviceId) {
+    try {
+      IsMemberResponse resp =
+          stub.withWaitForReady()
+              .withDeadlineAfter(2, TimeUnit.SECONDS)
+              .isMember(
+                  IsMemberRequest.newBuilder().setTripId(tripId).setDeviceId(deviceId).build());
+      return resp.getIsMember();
+    } catch (StatusRuntimeException e) {
+      handleStatusRuntimeException(e, tripId, deviceId);
+      throw new AccessDeniedException("Unable to verify trip membership");
     }
+  }
 
-    public boolean isMember(String tripId, String deviceId) {
-        try {
-            IsMemberResponse resp = stub.withWaitForReady()
-                    .withDeadlineAfter(2, TimeUnit.SECONDS)
-                    .isMember(IsMemberRequest.newBuilder()
-                            .setTripId(tripId)
-                            .setDeviceId(deviceId)
-                            .build());
-            return resp.getIsMember();
-        } catch (StatusRuntimeException e) {
-            handleStatusRuntimeException(e, tripId, deviceId);
-            throw new AccessDeniedException("Unable to verify trip membership");
-        }
+  public IsMemberResponse isMemberWithRole(String tripId, String deviceId) {
+    try {
+      return stub.withWaitForReady()
+          .withDeadlineAfter(2, TimeUnit.SECONDS)
+          .isMember(IsMemberRequest.newBuilder().setTripId(tripId).setDeviceId(deviceId).build());
+    } catch (StatusRuntimeException e) {
+      handleStatusRuntimeException(e, tripId, deviceId);
+      throw new AccessDeniedException("Unable to verify trip membership");
     }
+  }
 
-    public IsMemberResponse isMemberWithRole(String tripId, String deviceId) {
-        try {
-            return stub.withWaitForReady()
-                    .withDeadlineAfter(2, TimeUnit.SECONDS)
-                    .isMember(IsMemberRequest.newBuilder()
-                            .setTripId(tripId)
-                            .setDeviceId(deviceId)
-                            .build());
-        } catch (StatusRuntimeException e) {
-            handleStatusRuntimeException(e, tripId, deviceId);
-            throw new AccessDeniedException("Unable to verify trip membership");
-        }
+  private void handleStatusRuntimeException(
+      StatusRuntimeException e, String tripId, String deviceId) {
+    Status.Code code = e.getStatus().getCode();
+    log.error("IsMember gRPC failed trip={} device={}: {}", tripId, deviceId, e.getStatus());
+    switch (code) {
+      case UNAVAILABLE, DEADLINE_EXCEEDED ->
+          throw new ResponseStatusException(
+              HttpStatus.SERVICE_UNAVAILABLE, "trip-service unavailable");
+      case INTERNAL, UNKNOWN ->
+          throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "trip-service error");
+      case PERMISSION_DENIED ->
+          throw new AccessDeniedException("Permission denied by trip-service");
+      default -> {
+        // Fall through — caller will throw AccessDeniedException.
+      }
     }
+  }
 
-    private void handleStatusRuntimeException(StatusRuntimeException e, String tripId, String deviceId) {
-        Status.Code code = e.getStatus().getCode();
-        log.error("IsMember gRPC failed trip={} device={}: {}", tripId, deviceId, e.getStatus());
-        switch (code) {
-            case UNAVAILABLE, DEADLINE_EXCEEDED ->
-                    throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "trip-service unavailable");
-            case INTERNAL, UNKNOWN -> throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "trip-service error");
-            case PERMISSION_DENIED -> throw new AccessDeniedException("Permission denied by trip-service");
-            default -> {
-                // Fall through — caller will throw AccessDeniedException.
-            }
-        }
-    }
-
-    public void setStub(TripServiceGrpc.TripServiceBlockingStub stub) {
-        this.stub = stub;
-    }
+  public void setStub(TripServiceGrpc.TripServiceBlockingStub stub) {
+    this.stub = stub;
+  }
 }
