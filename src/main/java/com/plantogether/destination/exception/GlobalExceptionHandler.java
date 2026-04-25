@@ -2,7 +2,9 @@ package com.plantogether.destination.exception;
 
 import com.plantogether.common.exception.AccessDeniedException;
 import com.plantogether.common.exception.ResourceNotFoundException;
+import java.net.URI;
 import java.util.stream.Collectors;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -48,5 +50,26 @@ public class GlobalExceptionHandler {
   public ProblemDetail handleResponseStatus(ResponseStatusException ex) {
     return ProblemDetail.forStatusAndDetail(
         HttpStatus.valueOf(ex.getStatusCode().value()), ex.getReason());
+  }
+
+  @ExceptionHandler(DestinationAlreadyChosenException.class)
+  public ProblemDetail handleAlreadyChosen(DestinationAlreadyChosenException ex) {
+    ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+    pd.setType(URI.create("urn:problem:destination:already-chosen"));
+    return pd;
+  }
+
+  @ExceptionHandler(DataIntegrityViolationException.class)
+  public ProblemDetail handleDataIntegrity(DataIntegrityViolationException ex) {
+    String root = ex.getMostSpecificCause() == null ? "" : ex.getMostSpecificCause().getMessage();
+    if (root != null && root.contains("uq_destination_one_chosen_per_trip")) {
+      ProblemDetail pd =
+          ProblemDetail.forStatusAndDetail(
+              HttpStatus.CONFLICT,
+              "Another organizer selected a destination just now — reload to see the current choice");
+      pd.setType(URI.create("urn:problem:destination:already-chosen"));
+      return pd;
+    }
+    throw ex;
   }
 }

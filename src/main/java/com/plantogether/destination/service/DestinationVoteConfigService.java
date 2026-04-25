@@ -2,9 +2,12 @@ package com.plantogether.destination.service;
 
 import com.plantogether.common.exception.AccessDeniedException;
 import com.plantogether.destination.dto.VoteConfigResponse;
+import com.plantogether.destination.exception.DestinationAlreadyChosenException;
 import com.plantogether.destination.grpc.client.TripGrpcClient;
+import com.plantogether.destination.model.DestinationStatus;
 import com.plantogether.destination.model.DestinationVoteConfig;
 import com.plantogether.destination.model.VoteMode;
+import com.plantogether.destination.repository.DestinationRepository;
 import com.plantogether.destination.repository.DestinationVoteConfigRepository;
 import com.plantogether.destination.repository.DestinationVoteRepository;
 import com.plantogether.trip.grpc.IsMemberResponse;
@@ -22,6 +25,7 @@ public class DestinationVoteConfigService {
 
   private final DestinationVoteConfigRepository configRepository;
   private final DestinationVoteRepository voteRepository;
+  private final DestinationRepository destinationRepository;
   private final TripGrpcClient tripGrpcClient;
   private final TripLockService tripLockService;
 
@@ -57,6 +61,8 @@ public class DestinationVoteConfigService {
       throw new AccessDeniedException("Only the trip organizer can configure the vote mode");
     }
 
+    requireNotChosen(tripId);
+
     // Serialize against concurrent castVote on the same trip so two flips can't both
     // pass the no-op check and write conflicting modes.
     tripLockService.lock(tripId);
@@ -87,5 +93,11 @@ public class DestinationVoteConfigService {
         .mode(saved.getMode())
         .updatedAt(saved.getUpdatedAt())
         .build();
+  }
+
+  private void requireNotChosen(UUID tripId) {
+    if (destinationRepository.findByTripIdAndStatus(tripId, DestinationStatus.CHOSEN).isPresent()) {
+      throw new DestinationAlreadyChosenException();
+    }
   }
 }

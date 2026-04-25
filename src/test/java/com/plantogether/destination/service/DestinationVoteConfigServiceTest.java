@@ -7,9 +7,13 @@ import static org.mockito.Mockito.*;
 
 import com.plantogether.common.exception.AccessDeniedException;
 import com.plantogether.destination.dto.VoteConfigResponse;
+import com.plantogether.destination.exception.DestinationAlreadyChosenException;
 import com.plantogether.destination.grpc.client.TripGrpcClient;
+import com.plantogether.destination.model.Destination;
+import com.plantogether.destination.model.DestinationStatus;
 import com.plantogether.destination.model.DestinationVoteConfig;
 import com.plantogether.destination.model.VoteMode;
+import com.plantogether.destination.repository.DestinationRepository;
 import com.plantogether.destination.repository.DestinationVoteConfigRepository;
 import com.plantogether.destination.repository.DestinationVoteRepository;
 import com.plantogether.trip.grpc.IsMemberResponse;
@@ -29,6 +33,8 @@ class DestinationVoteConfigServiceTest {
   @Mock private DestinationVoteConfigRepository configRepository;
 
   @Mock private DestinationVoteRepository voteRepository;
+
+  @Mock private DestinationRepository destinationRepository;
 
   @Mock private TripGrpcClient tripGrpcClient;
 
@@ -147,5 +153,18 @@ class DestinationVoteConfigServiceTest {
     service.upsertConfig(tripId, deviceId, VoteMode.APPROVAL);
 
     verify(voteRepository).nullRanksForTrip(tripId);
+  }
+
+  @Test
+  void upsertConfig_whenTripHasChosen_throws409() {
+    when(tripGrpcClient.isMemberWithRole(tripId.toString(), deviceId))
+        .thenReturn(membership(true, "ORGANIZER"));
+    when(destinationRepository.findByTripIdAndStatus(tripId, DestinationStatus.CHOSEN))
+        .thenReturn(Optional.of(new Destination()));
+
+    assertThatThrownBy(() -> service.upsertConfig(tripId, deviceId, VoteMode.RANKING))
+        .isInstanceOf(DestinationAlreadyChosenException.class);
+
+    verify(configRepository, never()).save(any());
   }
 }

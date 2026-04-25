@@ -1,6 +1,7 @@
 package com.plantogether.destination.dto;
 
 import com.plantogether.destination.model.Destination;
+import com.plantogether.destination.model.DestinationStatus;
 import com.plantogether.destination.model.DestinationVote;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -30,6 +31,9 @@ public class DestinationResponse {
   private UUID proposedByDeviceId;
   private Instant createdAt;
   private Instant updatedAt;
+  private DestinationStatus status;
+  private Instant chosenAt;
+  private UUID chosenByDeviceId;
   private VoteAggregate votes;
 
   public static DestinationResponse from(
@@ -56,6 +60,9 @@ public class DestinationResponse {
         .proposedByDeviceId(entity.getProposedBy())
         .createdAt(entity.getCreatedAt())
         .updatedAt(entity.getUpdatedAt())
+        .status(entity.getStatus() == null ? DestinationStatus.PROPOSED : entity.getStatus())
+        .chosenAt(entity.getChosenAt())
+        .chosenByDeviceId(entity.getChosenBy())
         .votes(
             VoteAggregate.builder()
                 .totalVotes(votesForDestination.size())

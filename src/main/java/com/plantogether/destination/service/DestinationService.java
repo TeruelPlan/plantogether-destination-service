@@ -3,8 +3,10 @@ package com.plantogether.destination.service;
 import com.plantogether.common.exception.AccessDeniedException;
 import com.plantogether.destination.dto.DestinationResponse;
 import com.plantogether.destination.dto.ProposeDestinationRequest;
+import com.plantogether.destination.exception.DestinationAlreadyChosenException;
 import com.plantogether.destination.grpc.client.TripGrpcClient;
 import com.plantogether.destination.model.Destination;
+import com.plantogether.destination.model.DestinationStatus;
 import com.plantogether.destination.model.DestinationVote;
 import com.plantogether.destination.repository.DestinationRepository;
 import com.plantogether.destination.repository.DestinationVoteRepository;
@@ -28,6 +30,8 @@ public class DestinationService {
   public DestinationResponse proposeDestination(
       UUID tripId, String deviceId, ProposeDestinationRequest req) {
     requireMember(tripId, deviceId);
+
+    requireNotChosen(tripId);
 
     Destination entity =
         Destination.builder()
@@ -68,6 +72,12 @@ public class DestinationService {
   private void requireMember(UUID tripId, String deviceId) {
     if (!tripGrpcClient.isMember(tripId.toString(), deviceId)) {
       throw new AccessDeniedException("Device is not a member of this trip");
+    }
+  }
+
+  private void requireNotChosen(UUID tripId) {
+    if (repository.findByTripIdAndStatus(tripId, DestinationStatus.CHOSEN).isPresent()) {
+      throw new DestinationAlreadyChosenException();
     }
   }
 }

@@ -2,6 +2,8 @@ package com.plantogether.destination.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
@@ -62,11 +64,22 @@ public class Destination {
   @Column(name = "updated_at", nullable = false)
   private Instant updatedAt;
 
+  @Enumerated(EnumType.STRING)
+  @Column(nullable = false, length = 16)
+  private DestinationStatus status;
+
+  @Column(name = "chosen_at")
+  private Instant chosenAt;
+
+  @Column(name = "chosen_by")
+  private UUID chosenBy;
+
   @PrePersist
   void onCreate() {
     Instant now = Instant.now();
     if (createdAt == null) createdAt = now;
     if (updatedAt == null) updatedAt = now;
+    if (status == null) status = DestinationStatus.PROPOSED;
   }
 
   @PreUpdate

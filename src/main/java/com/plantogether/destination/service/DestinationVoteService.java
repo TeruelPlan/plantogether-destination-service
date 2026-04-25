@@ -5,8 +5,10 @@ import com.plantogether.common.exception.ResourceNotFoundException;
 import com.plantogether.destination.dto.CastVoteRequest;
 import com.plantogether.destination.dto.VoteResponse;
 import com.plantogether.destination.event.VoteCastInternalEvent;
+import com.plantogether.destination.exception.DestinationAlreadyChosenException;
 import com.plantogether.destination.grpc.client.TripGrpcClient;
 import com.plantogether.destination.model.Destination;
+import com.plantogether.destination.model.DestinationStatus;
 import com.plantogether.destination.model.DestinationVote;
 import com.plantogether.destination.model.VoteMode;
 import com.plantogether.destination.repository.DestinationRepository;
@@ -44,6 +46,7 @@ public class DestinationVoteService {
     }
 
     UUID tripId = destination.getTripId();
+    requireNotChosen(tripId);
     UUID deviceUuid = UUID.fromString(deviceId);
 
     // Serialize mode-aware writes: SIMPLE "one vote per trip" and RANKING "unique rank per
@@ -106,6 +109,8 @@ public class DestinationVoteService {
       throw new AccessDeniedException("Device is not a member of this trip");
     }
 
+    requireNotChosen(destination.getTripId());
+
     UUID deviceUuid = UUID.fromString(deviceId);
     // Retract is a single-row delete gated by the (destination_id, device_id) unique
     // constraint — no cross-row invariant, no lock needed.
@@ -123,6 +128,12 @@ public class DestinationVoteService {
     eventPublisher.publishEvent(
         new VoteCastInternalEvent(
             destination.getTripId(), destinationId, deviceUuid, mode, "RETRACTED"));
+  }
+
+  private void requireNotChosen(UUID tripId) {
+    if (destinationRepository.findByTripIdAndStatus(tripId, DestinationStatus.CHOSEN).isPresent()) {
+      throw new DestinationAlreadyChosenException();
+    }
   }
 
   private DestinationVote upsert(UUID destinationId, UUID tripId, UUID deviceId, Integer rank) {
