@@ -12,6 +12,7 @@ public class RabbitConfig {
 
   public static final String EXCHANGE = "plantogether.events";
   public static final String ROUTING_KEY_VOTE_CAST = "vote.cast";
+  public static final String ROUTING_KEY_COMMENT_ADDED = "destination.comment.added";
 
   @Bean
   public TopicExchange plantogetherExchange() {

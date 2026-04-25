@@ -1,8 +1,12 @@
 package com.plantogether.destination.grpc.client;
 
 import com.plantogether.common.exception.AccessDeniedException;
+import com.plantogether.common.exception.ResourceNotFoundException;
+import com.plantogether.trip.grpc.GetTripMembersRequest;
+import com.plantogether.trip.grpc.GetTripMembersResponse;
 import com.plantogether.trip.grpc.IsMemberRequest;
 import com.plantogether.trip.grpc.IsMemberResponse;
+import com.plantogether.trip.grpc.TripMemberProto;
 import com.plantogether.trip.grpc.TripServiceGrpc;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
@@ -10,6 +14,7 @@ import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -89,6 +94,38 @@ public class TripGrpcClient {
           throw new AccessDeniedException("Permission denied by trip-service");
       default -> {
         // Fall through — caller will throw AccessDeniedException.
+      }
+    }
+  }
+
+  public List<TripMemberProto> getTripMembers(String tripId) {
+    try {
+      GetTripMembersResponse resp =
+          stub.withWaitForReady()
+              .withDeadlineAfter(2, TimeUnit.SECONDS)
+              .getTripMembers(GetTripMembersRequest.newBuilder().setTripId(tripId).build());
+      return resp.getMembersList();
+    } catch (StatusRuntimeException e) {
+      Status.Code code = e.getStatus().getCode();
+      log.error("GetTripMembers gRPC failed trip={}: {}", tripId, e.getStatus());
+      switch (code) {
+        case UNAVAILABLE, DEADLINE_EXCEEDED ->
+            throw new ResponseStatusException(
+                HttpStatus.SERVICE_UNAVAILABLE, "trip-service unavailable");
+        case NOT_FOUND -> throw new ResourceNotFoundException("Trip not found: " + tripId);
+        case INTERNAL, UNKNOWN ->
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "trip-service error");
+        case RESOURCE_EXHAUSTED ->
+            throw new ResponseStatusException(
+                HttpStatus.TOO_MANY_REQUESTS, "trip-service quota exhausted");
+        case UNAUTHENTICATED ->
+            throw new ResponseStatusException(
+                HttpStatus.UNAUTHORIZED, "trip-service authentication failed");
+        case PERMISSION_DENIED ->
+            throw new AccessDeniedException("Permission denied by trip-service");
+        case CANCELLED ->
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "trip-service cancelled");
+        default -> throw new AccessDeniedException("Unable to resolve trip members");
       }
     }
   }

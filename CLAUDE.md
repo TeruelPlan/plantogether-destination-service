@@ -98,12 +98,14 @@ Calls `TripGrpcService.IsMember(tripId, deviceId)` on trip-service:9081 before e
 | POST | `/api/v1/destinations/{id}/vote` | X-Device-Id + member | Vote (upsert) |
 | DELETE | `/api/v1/destinations/{id}/vote` | X-Device-Id + member | Retract vote |
 | POST | `/api/v1/destinations/{id}/comments` | X-Device-Id + member | Add comment |
+| GET | `/api/v1/destinations/{id}/comments` | X-Device-Id + member | List comments (chronological, display names resolved via trip-service gRPC) |
 
 ### RabbitMQ events
 
 **Publishes** (exchange `plantogether.events`):
 - `vote.cast` — routing key `vote.cast` — when a user votes on a destination (consumed by notification-service)
   - Bridged to STOMP by notification-service → clients receive `DESTINATION_VOTE_CAST` frames on `/topic/trips/{tripId}/updates` for real-time vote aggregate updates.
+- `destination.comment.added` — routing key `destination.comment.added` — when a member posts a comment (payload: `tripId`, `destinationId`, `commentId`, `authorDeviceId`, `occurredAt`; no content). notification-service will consume this in Epic 7 (push notifications).
 
 This service does **not** consume any events.
 
