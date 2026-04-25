@@ -20,7 +20,7 @@
             <dependency>
                 <groupId>com.plantogether</groupId>
                 <artifactId>plantogether-bom</artifactId>
-                <version>1.3.0</version>
+                <version>1.4.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -111,6 +111,21 @@
             <groupId>com.plantogether</groupId>
             <artifactId>plantogether-common</artifactId>
             <classifier>tests</classifier>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
