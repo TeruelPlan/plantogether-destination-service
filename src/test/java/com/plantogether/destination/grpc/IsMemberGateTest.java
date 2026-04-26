@@ -99,7 +99,7 @@ class IsMemberGateTest {
     DestinationService service = new DestinationService(repository, voteRepository, tripGrpcClient);
     DestinationVoteConfigService voteConfigService =
         new DestinationVoteConfigService(
-            configRepository, voteRepository, tripGrpcClient, tripLockService);
+            configRepository, voteRepository, repository, tripGrpcClient, tripLockService);
     DestinationVoteService voteService =
         new DestinationVoteService(
             repository,

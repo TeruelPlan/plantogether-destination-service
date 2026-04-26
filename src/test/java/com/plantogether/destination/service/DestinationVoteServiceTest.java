@@ -10,8 +10,10 @@ import com.plantogether.common.exception.ResourceNotFoundException;
 import com.plantogether.destination.dto.CastVoteRequest;
 import com.plantogether.destination.dto.VoteResponse;
 import com.plantogether.destination.event.VoteCastInternalEvent;
+import com.plantogether.destination.exception.DestinationAlreadyChosenException;
 import com.plantogether.destination.grpc.client.TripGrpcClient;
 import com.plantogether.destination.model.Destination;
+import com.plantogether.destination.model.DestinationStatus;
 import com.plantogether.destination.model.DestinationVote;
 import com.plantogether.destination.model.DestinationVoteConfig;
 import com.plantogether.destination.model.VoteMode;
@@ -308,5 +310,34 @@ class DestinationVoteServiceTest {
     verify(eventPublisher).publishEvent(captor.capture());
     assertThat(captor.getValue().voteValue()).isEqualTo("YES");
     assertThat(captor.getValue().mode()).isEqualTo(VoteMode.SIMPLE);
+  }
+
+  @Test
+  void castVote_whenTripHasChosen_throws409() {
+    when(destinationRepository.findById(destinationId)).thenReturn(Optional.of(destination));
+    when(tripGrpcClient.isMember(tripId.toString(), deviceId)).thenReturn(true);
+    when(destinationRepository.findByTripIdAndStatus(tripId, DestinationStatus.CHOSEN))
+        .thenReturn(Optional.of(new Destination()));
+
+    assertThatThrownBy(
+            () -> service.castVote(destinationId, deviceId, CastVoteRequest.builder().build()))
+        .isInstanceOf(DestinationAlreadyChosenException.class);
+
+    verify(voteRepository, never()).save(any());
+    verify(eventPublisher, never()).publishEvent(any(Object.class));
+  }
+
+  @Test
+  void retractVote_whenTripHasChosen_throws409() {
+    when(destinationRepository.findById(destinationId)).thenReturn(Optional.of(destination));
+    when(tripGrpcClient.isMember(tripId.toString(), deviceId)).thenReturn(true);
+    when(destinationRepository.findByTripIdAndStatus(tripId, DestinationStatus.CHOSEN))
+        .thenReturn(Optional.of(new Destination()));
+
+    assertThatThrownBy(() -> service.retractVote(destinationId, deviceId))
+        .isInstanceOf(DestinationAlreadyChosenException.class);
+
+    verify(voteRepository, never()).deleteByDestinationIdAndDeviceId(any(), any());
+    verify(eventPublisher, never()).publishEvent(any(Object.class));
   }
 }

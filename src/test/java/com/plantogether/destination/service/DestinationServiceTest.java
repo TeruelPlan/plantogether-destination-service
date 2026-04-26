@@ -11,13 +11,16 @@ import static org.mockito.Mockito.when;
 import com.plantogether.common.exception.AccessDeniedException;
 import com.plantogether.destination.dto.DestinationResponse;
 import com.plantogether.destination.dto.ProposeDestinationRequest;
+import com.plantogether.destination.exception.DestinationAlreadyChosenException;
 import com.plantogether.destination.grpc.client.TripGrpcClient;
 import com.plantogether.destination.model.Destination;
+import com.plantogether.destination.model.DestinationStatus;
 import com.plantogether.destination.repository.DestinationRepository;
 import com.plantogether.destination.repository.DestinationVoteRepository;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -116,6 +119,18 @@ class DestinationServiceTest {
     List<DestinationResponse> result = service.listDestinations(tripId, deviceId);
 
     assertThat(result).extracting(DestinationResponse::getName).containsExactly("A", "B");
+  }
+
+  @Test
+  void propose_whenTripHasChosen_throws409() {
+    when(tripGrpcClient.isMember(tripId.toString(), deviceId)).thenReturn(true);
+    when(repository.findByTripIdAndStatus(tripId, DestinationStatus.CHOSEN))
+        .thenReturn(Optional.of(new Destination()));
+
+    assertThatThrownBy(() -> service.proposeDestination(tripId, deviceId, validRequest()))
+        .isInstanceOf(DestinationAlreadyChosenException.class);
+
+    verify(repository, never()).save(any());
   }
 
   @Test
