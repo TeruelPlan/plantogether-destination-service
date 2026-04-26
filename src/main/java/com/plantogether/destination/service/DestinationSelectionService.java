@@ -37,8 +37,7 @@ public class DestinationSelectionService {
 
     UUID tripId = destination.getTripId();
 
-    IsMemberResponse membership =
-        tripGrpcClient.isMemberWithRole(tripId.toString(), deviceId);
+    IsMemberResponse membership = tripGrpcClient.isMemberWithRole(tripId.toString(), deviceId);
     if (!membership.getIsMember()) {
       throw new AccessDeniedException("Device is not a member of this trip");
     }
@@ -73,12 +72,7 @@ public class DestinationSelectionService {
 
     eventPublisher.publishEvent(
         new DestinationChosenInternalEvent(
-            tripId,
-            saved.getId(),
-            saved.getName(),
-            deviceUuid,
-            chosenAt,
-            previousChosenId));
+            tripId, saved.getId(), saved.getName(), deviceUuid, chosenAt, previousChosenId));
 
     return DestinationResponse.from(saved);
   }

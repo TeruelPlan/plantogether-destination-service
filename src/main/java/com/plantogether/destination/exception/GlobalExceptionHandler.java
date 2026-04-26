@@ -66,7 +66,8 @@ public class GlobalExceptionHandler {
       ProblemDetail pd =
           ProblemDetail.forStatusAndDetail(
               HttpStatus.CONFLICT,
-              "Another organizer selected a destination just now — reload to see the current choice");
+              "Another organizer selected a destination just now — reload to see the current"
+                  + " choice");
       pd.setType(URI.create("urn:problem:destination:already-chosen"));
       return pd;
     }
