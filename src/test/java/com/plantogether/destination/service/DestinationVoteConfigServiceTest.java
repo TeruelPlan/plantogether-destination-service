@@ -6,9 +6,11 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 import com.plantogether.common.exception.AccessDeniedException;
+import com.plantogether.common.grpc.Role;
+import com.plantogether.common.grpc.TripClient;
+import com.plantogether.common.grpc.TripMembership;
 import com.plantogether.destination.dto.VoteConfigResponse;
 import com.plantogether.destination.exception.DestinationAlreadyChosenException;
-import com.plantogether.destination.grpc.client.TripGrpcClient;
 import com.plantogether.destination.model.Destination;
 import com.plantogether.destination.model.DestinationStatus;
 import com.plantogether.destination.model.DestinationVoteConfig;
@@ -16,7 +18,6 @@ import com.plantogether.destination.model.VoteMode;
 import com.plantogether.destination.repository.DestinationRepository;
 import com.plantogether.destination.repository.DestinationVoteConfigRepository;
 import com.plantogether.destination.repository.DestinationVoteRepository;
-import com.plantogether.trip.grpc.IsMemberResponse;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
@@ -36,7 +37,7 @@ class DestinationVoteConfigServiceTest {
 
   @Mock private DestinationRepository destinationRepository;
 
-  @Mock private TripGrpcClient tripGrpcClient;
+  @Mock private TripClient tripClient;
 
   @Mock private TripLockService tripLockService;
 
@@ -51,16 +52,10 @@ class DestinationVoteConfigServiceTest {
     deviceId = UUID.randomUUID().toString();
   }
 
-  private IsMemberResponse membership(boolean isMember, String role) {
-    return IsMemberResponse.newBuilder()
-        .setIsMember(isMember)
-        .setRole(role == null ? "" : role)
-        .build();
-  }
-
   @Test
   void getConfig_absent_returnsDefaultSimple() {
-    when(tripGrpcClient.isMember(tripId.toString(), deviceId)).thenReturn(true);
+    when(tripClient.requireMembership(tripId.toString(), deviceId))
+        .thenReturn(new TripMembership(true, Role.PARTICIPANT));
     when(configRepository.findById(tripId)).thenReturn(Optional.empty());
 
     VoteConfigResponse response = service.getConfig(tripId, deviceId);
@@ -72,7 +67,9 @@ class DestinationVoteConfigServiceTest {
 
   @Test
   void getConfig_nonMember_throwsAccessDenied() {
-    when(tripGrpcClient.isMember(tripId.toString(), deviceId)).thenReturn(false);
+    doThrow(new AccessDeniedException("Device is not a member of this trip"))
+        .when(tripClient)
+        .requireMembership(tripId.toString(), deviceId);
 
     assertThatThrownBy(() -> service.getConfig(tripId, deviceId))
         .isInstanceOf(AccessDeniedException.class);
@@ -82,8 +79,8 @@ class DestinationVoteConfigServiceTest {
 
   @Test
   void upsertConfig_organizer_persistsAndReturns() {
-    when(tripGrpcClient.isMemberWithRole(tripId.toString(), deviceId))
-        .thenReturn(membership(true, "ORGANIZER"));
+    when(tripClient.requireMembership(tripId.toString(), deviceId))
+        .thenReturn(new TripMembership(true, Role.ORGANIZER));
     when(configRepository.findById(tripId)).thenReturn(Optional.empty());
     when(configRepository.save(any(DestinationVoteConfig.class)))
         .thenAnswer(inv -> inv.getArgument(0));
@@ -100,8 +97,8 @@ class DestinationVoteConfigServiceTest {
 
   @Test
   void upsertConfig_participant_throwsAccessDenied() {
-    when(tripGrpcClient.isMemberWithRole(tripId.toString(), deviceId))
-        .thenReturn(membership(true, "PARTICIPANT"));
+    when(tripClient.requireMembership(tripId.toString(), deviceId))
+        .thenReturn(new TripMembership(true, Role.PARTICIPANT));
 
     assertThatThrownBy(() -> service.upsertConfig(tripId, deviceId, VoteMode.RANKING))
         .isInstanceOf(AccessDeniedException.class);
@@ -112,8 +109,8 @@ class DestinationVoteConfigServiceTest {
 
   @Test
   void upsertConfig_switchToSimple_nullsAllRanksForTrip() {
-    when(tripGrpcClient.isMemberWithRole(tripId.toString(), deviceId))
-        .thenReturn(membership(true, "ORGANIZER"));
+    when(tripClient.requireMembership(tripId.toString(), deviceId))
+        .thenReturn(new TripMembership(true, Role.ORGANIZER));
     when(configRepository.findById(tripId)).thenReturn(Optional.empty());
     when(configRepository.save(any(DestinationVoteConfig.class)))
         .thenAnswer(inv -> inv.getArgument(0));
@@ -125,8 +122,8 @@ class DestinationVoteConfigServiceTest {
 
   @Test
   void upsertConfig_switchToRanking_preservesRanks() {
-    when(tripGrpcClient.isMemberWithRole(tripId.toString(), deviceId))
-        .thenReturn(membership(true, "ORGANIZER"));
+    when(tripClient.requireMembership(tripId.toString(), deviceId))
+        .thenReturn(new TripMembership(true, Role.ORGANIZER));
     DestinationVoteConfig existing =
         DestinationVoteConfig.builder()
             .tripId(tripId)
@@ -144,8 +141,8 @@ class DestinationVoteConfigServiceTest {
 
   @Test
   void upsertConfig_switchToApproval_nullsAllRanksForTrip() {
-    when(tripGrpcClient.isMemberWithRole(tripId.toString(), deviceId))
-        .thenReturn(membership(true, "ORGANIZER"));
+    when(tripClient.requireMembership(tripId.toString(), deviceId))
+        .thenReturn(new TripMembership(true, Role.ORGANIZER));
     when(configRepository.findById(tripId)).thenReturn(Optional.empty());
     when(configRepository.save(any(DestinationVoteConfig.class)))
         .thenAnswer(inv -> inv.getArgument(0));
@@ -157,8 +154,8 @@ class DestinationVoteConfigServiceTest {
 
   @Test
   void upsertConfig_whenTripHasChosen_throws409() {
-    when(tripGrpcClient.isMemberWithRole(tripId.toString(), deviceId))
-        .thenReturn(membership(true, "ORGANIZER"));
+    when(tripClient.requireMembership(tripId.toString(), deviceId))
+        .thenReturn(new TripMembership(true, Role.ORGANIZER));
     when(destinationRepository.findByTripIdAndStatus(tripId, DestinationStatus.CHOSEN))
         .thenReturn(Optional.of(new Destination()));
 

@@ -4,15 +4,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.plantogether.common.exception.AccessDeniedException;
+import com.plantogether.common.grpc.Role;
+import com.plantogether.common.grpc.TripClient;
+import com.plantogether.common.grpc.TripMembership;
 import com.plantogether.destination.dto.DestinationResponse;
 import com.plantogether.destination.dto.ProposeDestinationRequest;
 import com.plantogether.destination.exception.DestinationAlreadyChosenException;
-import com.plantogether.destination.grpc.client.TripGrpcClient;
 import com.plantogether.destination.model.Destination;
 import com.plantogether.destination.model.DestinationStatus;
 import com.plantogether.destination.repository.DestinationRepository;
@@ -36,7 +39,7 @@ class DestinationServiceTest {
 
   @Mock private DestinationVoteRepository voteRepository;
 
-  @Mock private TripGrpcClient tripGrpcClient;
+  @Mock private TripClient tripClient;
 
   @InjectMocks private DestinationService service;
 
@@ -61,7 +64,8 @@ class DestinationServiceTest {
 
   @Test
   void propose_member_savesAndReturnsResponse() {
-    when(tripGrpcClient.isMember(tripId.toString(), deviceId)).thenReturn(true);
+    when(tripClient.requireMembership(tripId.toString(), deviceId))
+        .thenReturn(new TripMembership(true, Role.PARTICIPANT));
     when(repository.save(any(Destination.class)))
         .thenAnswer(
             inv -> {
@@ -84,7 +88,9 @@ class DestinationServiceTest {
 
   @Test
   void propose_nonMember_throwsAccessDenied() {
-    when(tripGrpcClient.isMember(tripId.toString(), deviceId)).thenReturn(false);
+    doThrow(new AccessDeniedException("Device is not a member of this trip"))
+        .when(tripClient)
+        .requireMembership(tripId.toString(), deviceId);
 
     assertThatThrownBy(() -> service.proposeDestination(tripId, deviceId, validRequest()))
         .isInstanceOf(AccessDeniedException.class);
@@ -112,7 +118,8 @@ class DestinationServiceTest {
             .createdAt(Instant.now().minusSeconds(60))
             .updatedAt(Instant.now().minusSeconds(60))
             .build();
-    when(tripGrpcClient.isMember(tripId.toString(), deviceId)).thenReturn(true);
+    when(tripClient.requireMembership(tripId.toString(), deviceId))
+        .thenReturn(new TripMembership(true, Role.PARTICIPANT));
     when(repository.findByTripIdOrderByCreatedAtDesc(tripId)).thenReturn(List.of(d1, d2));
     when(voteRepository.findByDestinationIdIn(any())).thenReturn(List.of());
 
@@ -123,7 +130,8 @@ class DestinationServiceTest {
 
   @Test
   void propose_whenTripHasChosen_throws409() {
-    when(tripGrpcClient.isMember(tripId.toString(), deviceId)).thenReturn(true);
+    when(tripClient.requireMembership(tripId.toString(), deviceId))
+        .thenReturn(new TripMembership(true, Role.PARTICIPANT));
     when(repository.findByTripIdAndStatus(tripId, DestinationStatus.CHOSEN))
         .thenReturn(Optional.of(new Destination()));
 
@@ -135,7 +143,9 @@ class DestinationServiceTest {
 
   @Test
   void list_nonMember_throwsAccessDenied() {
-    when(tripGrpcClient.isMember(eq(tripId.toString()), eq(deviceId))).thenReturn(false);
+    doThrow(new AccessDeniedException("Device is not a member of this trip"))
+        .when(tripClient)
+        .requireMembership(eq(tripId.toString()), eq(deviceId));
 
     assertThatThrownBy(() -> service.listDestinations(tripId, deviceId))
         .isInstanceOf(AccessDeniedException.class);

@@ -9,9 +9,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.plantogether.common.exception.AccessDeniedException;
+import com.plantogether.common.grpc.TripClient;
 import com.plantogether.common.security.SecurityAutoConfiguration;
 import com.plantogether.destination.dto.DestinationResponse;
-import com.plantogether.destination.grpc.client.TripGrpcClient;
 import com.plantogether.destination.service.DestinationService;
 import com.plantogether.destination.service.DestinationVoteConfigService;
 import java.math.BigDecimal;
@@ -39,13 +39,13 @@ class DestinationControllerTest {
 
   @MockitoBean private DestinationService destinationService;
 
-  @MockitoBean private TripGrpcClient tripGrpcClient;
+  @MockitoBean private TripClient tripClient;
 
   @MockitoBean private DestinationVoteConfigService destinationVoteConfigService;
 
   @AfterEach
   void tearDown() {
-    Mockito.reset(destinationService, tripGrpcClient, destinationVoteConfigService);
+    Mockito.reset(destinationService, tripClient, destinationVoteConfigService);
   }
 
   private String validBody() {

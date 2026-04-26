@@ -7,9 +7,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.plantogether.common.grpc.TripClient;
 import com.plantogether.destination.controller.DestinationController;
 import com.plantogether.destination.exception.GlobalExceptionHandler;
-import com.plantogether.destination.grpc.client.TripGrpcClient;
 import com.plantogether.destination.model.Destination;
 import com.plantogether.destination.repository.DestinationRepository;
 import com.plantogether.destination.repository.DestinationVoteConfigRepository;
@@ -75,8 +75,8 @@ class IsMemberGateTest {
 
     channel = InProcessChannelBuilder.forName(SERVER_NAME).directExecutor().build();
 
-    TripGrpcClient tripGrpcClient = new TripGrpcClient();
-    tripGrpcClient.setStub(TripServiceGrpc.newBlockingStub(channel));
+    TripClient tripClient =
+        new com.plantogether.common.grpc.TripGrpcClient(TripServiceGrpc.newBlockingStub(channel));
 
     repository = mock(DestinationRepository.class);
     DestinationVoteRepository voteRepository = mock(DestinationVoteRepository.class);
@@ -96,16 +96,16 @@ class IsMemberGateTest {
     ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
     TripLockService tripLockService = mock(TripLockService.class);
 
-    DestinationService service = new DestinationService(repository, voteRepository, tripGrpcClient);
+    DestinationService service = new DestinationService(repository, voteRepository, tripClient);
     DestinationVoteConfigService voteConfigService =
         new DestinationVoteConfigService(
-            configRepository, voteRepository, repository, tripGrpcClient, tripLockService);
+            configRepository, voteRepository, repository, tripClient, tripLockService);
     DestinationVoteService voteService =
         new DestinationVoteService(
             repository,
             voteRepository,
             configRepository,
-            tripGrpcClient,
+            tripClient,
             eventPublisher,
             tripLockService);
 

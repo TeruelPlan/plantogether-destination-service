@@ -9,13 +9,14 @@ import static org.mockito.Mockito.when;
 
 import com.plantogether.common.exception.AccessDeniedException;
 import com.plantogether.common.exception.ResourceNotFoundException;
+import com.plantogether.common.grpc.Role;
+import com.plantogether.common.grpc.TripClient;
+import com.plantogether.common.grpc.TripMembership;
 import com.plantogether.destination.dto.DestinationResponse;
 import com.plantogether.destination.event.DestinationChosenInternalEvent;
-import com.plantogether.destination.grpc.client.TripGrpcClient;
 import com.plantogether.destination.model.Destination;
 import com.plantogether.destination.model.DestinationStatus;
 import com.plantogether.destination.repository.DestinationRepository;
-import com.plantogether.trip.grpc.IsMemberResponse;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
@@ -32,7 +33,7 @@ import org.springframework.context.ApplicationEventPublisher;
 class DestinationSelectionServiceTest {
 
   @Mock private DestinationRepository repository;
-  @Mock private TripGrpcClient tripGrpcClient;
+  @Mock private TripClient tripClient;
   @Mock private ApplicationEventPublisher eventPublisher;
 
   @InjectMocks private DestinationSelectionService service;
@@ -61,16 +62,9 @@ class DestinationSelectionServiceTest {
             .build();
   }
 
-  private IsMemberResponse membership(boolean isMember, String role) {
-    return IsMemberResponse.newBuilder()
-        .setIsMember(isMember)
-        .setRole(role == null ? "" : role)
-        .build();
-  }
-
   private void stubOrganizer() {
-    when(tripGrpcClient.isMemberWithRole(tripId.toString(), deviceId))
-        .thenReturn(membership(true, "ORGANIZER"));
+    when(tripClient.requireMembership(tripId.toString(), deviceId))
+        .thenReturn(new TripMembership(true, Role.ORGANIZER));
   }
 
   @Test
@@ -151,8 +145,8 @@ class DestinationSelectionServiceTest {
   @Test
   void select_nonMember_throwsAccessDenied() {
     when(repository.findById(destinationId)).thenReturn(Optional.of(destination));
-    when(tripGrpcClient.isMemberWithRole(tripId.toString(), deviceId))
-        .thenReturn(membership(false, ""));
+    when(tripClient.requireMembership(tripId.toString(), deviceId))
+        .thenThrow(new com.plantogether.common.exception.AccessDeniedException("not a member"));
 
     assertThatThrownBy(() -> service.selectDestination(destinationId, deviceId))
         .isInstanceOf(AccessDeniedException.class)
@@ -162,8 +156,8 @@ class DestinationSelectionServiceTest {
   @Test
   void select_participant_throwsAccessDenied_withOrganizerMessage() {
     when(repository.findById(destinationId)).thenReturn(Optional.of(destination));
-    when(tripGrpcClient.isMemberWithRole(tripId.toString(), deviceId))
-        .thenReturn(membership(true, "PARTICIPANT"));
+    when(tripClient.requireMembership(tripId.toString(), deviceId))
+        .thenReturn(new TripMembership(true, Role.PARTICIPANT));
 
     assertThatThrownBy(() -> service.selectDestination(destinationId, deviceId))
         .isInstanceOf(AccessDeniedException.class)

@@ -2,15 +2,15 @@ package com.plantogether.destination.service;
 
 import com.plantogether.common.exception.AccessDeniedException;
 import com.plantogether.common.exception.ResourceNotFoundException;
+import com.plantogether.common.grpc.TripClient;
+import com.plantogether.common.grpc.TripMember;
 import com.plantogether.destination.dto.AddCommentRequest;
 import com.plantogether.destination.dto.CommentResponse;
 import com.plantogether.destination.event.DestinationCommentAddedInternalEvent;
-import com.plantogether.destination.grpc.client.TripGrpcClient;
 import com.plantogether.destination.model.Destination;
 import com.plantogether.destination.model.DestinationComment;
 import com.plantogether.destination.repository.DestinationCommentRepository;
 import com.plantogether.destination.repository.DestinationRepository;
-import com.plantogether.trip.grpc.TripMemberProto;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,7 +30,7 @@ public class DestinationCommentService {
 
   private final DestinationRepository destinationRepository;
   private final DestinationCommentRepository commentRepository;
-  private final TripGrpcClient tripGrpcClient;
+  private final TripClient tripClient;
   private final ApplicationEventPublisher eventPublisher;
 
   @Transactional
@@ -90,23 +90,16 @@ public class DestinationCommentService {
    */
   private Map<UUID, String> authorizeAndResolveMembers(
       Destination destination, String deviceIdStr) {
-    List<TripMemberProto> members =
-        tripGrpcClient.getTripMembers(destination.getTripId().toString());
-    boolean isMember = members.stream().anyMatch(m -> m.getDeviceId().equals(deviceIdStr));
+    List<TripMember> members = tripClient.getTripMembers(destination.getTripId().toString());
+    boolean isMember = members.stream().anyMatch(m -> m.deviceId().toString().equals(deviceIdStr));
     if (!isMember) {
       throw new AccessDeniedException("Device is not a member of this trip");
     }
     Map<UUID, String> displayNames = new HashMap<>();
-    for (TripMemberProto m : members) {
-      UUID memberId;
-      try {
-        memberId = UUID.fromString(m.getDeviceId());
-      } catch (IllegalArgumentException ex) {
-        log.warn("Skipping malformed member device id from trip-service: {}", m.getDeviceId());
-        continue;
-      }
-      String name = m.getDisplayName();
-      displayNames.putIfAbsent(memberId, (name == null || name.isBlank()) ? UNKNOWN_MEMBER : name);
+    for (TripMember m : members) {
+      String name = m.displayName();
+      displayNames.putIfAbsent(
+          m.deviceId(), (name == null || name.isBlank()) ? UNKNOWN_MEMBER : name);
     }
     return displayNames;
   }

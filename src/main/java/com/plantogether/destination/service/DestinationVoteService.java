@@ -1,12 +1,11 @@
 package com.plantogether.destination.service;
 
-import com.plantogether.common.exception.AccessDeniedException;
 import com.plantogether.common.exception.ResourceNotFoundException;
+import com.plantogether.common.grpc.TripClient;
 import com.plantogether.destination.dto.CastVoteRequest;
 import com.plantogether.destination.dto.VoteResponse;
 import com.plantogether.destination.event.VoteCastInternalEvent;
 import com.plantogether.destination.exception.DestinationAlreadyChosenException;
-import com.plantogether.destination.grpc.client.TripGrpcClient;
 import com.plantogether.destination.model.Destination;
 import com.plantogether.destination.model.DestinationStatus;
 import com.plantogether.destination.model.DestinationVote;
@@ -29,7 +28,7 @@ public class DestinationVoteService {
   private final DestinationRepository destinationRepository;
   private final DestinationVoteRepository voteRepository;
   private final DestinationVoteConfigRepository configRepository;
-  private final TripGrpcClient tripGrpcClient;
+  private final TripClient tripClient;
   private final ApplicationEventPublisher eventPublisher;
   private final TripLockService tripLockService;
 
@@ -41,9 +40,7 @@ public class DestinationVoteService {
             .orElseThrow(
                 () -> new ResourceNotFoundException("Destination not found: " + destinationId));
 
-    if (!tripGrpcClient.isMember(destination.getTripId().toString(), deviceId)) {
-      throw new AccessDeniedException("Device is not a member of this trip");
-    }
+    tripClient.requireMembership(destination.getTripId().toString(), deviceId);
 
     UUID tripId = destination.getTripId();
     requireNotChosen(tripId);
@@ -105,9 +102,7 @@ public class DestinationVoteService {
             .orElseThrow(
                 () -> new ResourceNotFoundException("Destination not found: " + destinationId));
 
-    if (!tripGrpcClient.isMember(destination.getTripId().toString(), deviceId)) {
-      throw new AccessDeniedException("Device is not a member of this trip");
-    }
+    tripClient.requireMembership(destination.getTripId().toString(), deviceId);
 
     requireNotChosen(destination.getTripId());
 

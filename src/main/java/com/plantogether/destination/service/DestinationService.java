@@ -1,10 +1,9 @@
 package com.plantogether.destination.service;
 
-import com.plantogether.common.exception.AccessDeniedException;
+import com.plantogether.common.grpc.TripClient;
 import com.plantogether.destination.dto.DestinationResponse;
 import com.plantogether.destination.dto.ProposeDestinationRequest;
 import com.plantogether.destination.exception.DestinationAlreadyChosenException;
-import com.plantogether.destination.grpc.client.TripGrpcClient;
 import com.plantogether.destination.model.Destination;
 import com.plantogether.destination.model.DestinationStatus;
 import com.plantogether.destination.model.DestinationVote;
@@ -24,12 +23,12 @@ public class DestinationService {
 
   private final DestinationRepository repository;
   private final DestinationVoteRepository voteRepository;
-  private final TripGrpcClient tripGrpcClient;
+  private final TripClient tripClient;
 
   @Transactional
   public DestinationResponse proposeDestination(
       UUID tripId, String deviceId, ProposeDestinationRequest req) {
-    requireMember(tripId, deviceId);
+    tripClient.requireMembership(tripId.toString(), deviceId);
 
     requireNotChosen(tripId);
 
@@ -51,7 +50,7 @@ public class DestinationService {
 
   @Transactional(readOnly = true)
   public List<DestinationResponse> listDestinations(UUID tripId, String deviceId) {
-    requireMember(tripId, deviceId);
+    tripClient.requireMembership(tripId.toString(), deviceId);
     List<Destination> destinations = repository.findByTripIdOrderByCreatedAtDesc(tripId);
     if (destinations.isEmpty()) {
       return List.of();
@@ -67,12 +66,6 @@ public class DestinationService {
                 DestinationResponse.from(
                     d, votesByDestination.getOrDefault(d.getId(), List.of()), deviceUuid))
         .toList();
-  }
-
-  private void requireMember(UUID tripId, String deviceId) {
-    if (!tripGrpcClient.isMember(tripId.toString(), deviceId)) {
-      throw new AccessDeniedException("Device is not a member of this trip");
-    }
   }
 
   private void requireNotChosen(UUID tripId) {

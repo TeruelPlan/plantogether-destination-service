@@ -2,13 +2,14 @@ package com.plantogether.destination.service;
 
 import com.plantogether.common.exception.AccessDeniedException;
 import com.plantogether.common.exception.ResourceNotFoundException;
+import com.plantogether.common.grpc.Role;
+import com.plantogether.common.grpc.TripClient;
+import com.plantogether.common.grpc.TripMembership;
 import com.plantogether.destination.dto.DestinationResponse;
 import com.plantogether.destination.event.DestinationChosenInternalEvent;
-import com.plantogether.destination.grpc.client.TripGrpcClient;
 import com.plantogether.destination.model.Destination;
 import com.plantogether.destination.model.DestinationStatus;
 import com.plantogether.destination.repository.DestinationRepository;
-import com.plantogether.trip.grpc.IsMemberResponse;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
@@ -21,10 +22,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class DestinationSelectionService {
 
-  private static final String ROLE_ORGANIZER = "ORGANIZER";
-
   private final DestinationRepository repository;
-  private final TripGrpcClient tripGrpcClient;
+  private final TripClient tripClient;
   private final ApplicationEventPublisher eventPublisher;
 
   @Transactional
@@ -37,11 +36,8 @@ public class DestinationSelectionService {
 
     UUID tripId = destination.getTripId();
 
-    IsMemberResponse membership = tripGrpcClient.isMemberWithRole(tripId.toString(), deviceId);
-    if (!membership.getIsMember()) {
-      throw new AccessDeniedException("Device is not a member of this trip");
-    }
-    if (!ROLE_ORGANIZER.equals(membership.getRole())) {
+    TripMembership membership = tripClient.requireMembership(tripId.toString(), deviceId);
+    if (membership.role() != Role.ORGANIZER) {
       throw new AccessDeniedException("Only the trip organizer can select a destination");
     }
 

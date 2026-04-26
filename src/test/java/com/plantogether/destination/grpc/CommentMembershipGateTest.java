@@ -10,9 +10,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.plantogether.common.grpc.TripClient;
 import com.plantogether.destination.controller.DestinationCommentController;
 import com.plantogether.destination.exception.GlobalExceptionHandler;
-import com.plantogether.destination.grpc.client.TripGrpcClient;
 import com.plantogether.destination.model.Destination;
 import com.plantogether.destination.model.DestinationComment;
 import com.plantogether.destination.repository.DestinationCommentRepository;
@@ -72,8 +72,8 @@ class CommentMembershipGateTest {
             .start();
     channel = InProcessChannelBuilder.forName(SERVER_NAME).directExecutor().build();
 
-    TripGrpcClient tripGrpcClient = new TripGrpcClient();
-    tripGrpcClient.setStub(TripServiceGrpc.newBlockingStub(channel));
+    TripClient tripClient =
+        new com.plantogether.common.grpc.TripGrpcClient(TripServiceGrpc.newBlockingStub(channel));
 
     destinationRepository = mock(DestinationRepository.class);
     commentRepository = mock(DestinationCommentRepository.class);
@@ -104,7 +104,7 @@ class CommentMembershipGateTest {
 
     DestinationCommentService service =
         new DestinationCommentService(
-            destinationRepository, commentRepository, tripGrpcClient, eventPublisher);
+            destinationRepository, commentRepository, tripClient, eventPublisher);
     DestinationCommentController controller = new DestinationCommentController(service);
 
     mockMvc =

@@ -1,16 +1,17 @@
 package com.plantogether.destination.service;
 
 import com.plantogether.common.exception.AccessDeniedException;
+import com.plantogether.common.grpc.Role;
+import com.plantogether.common.grpc.TripClient;
+import com.plantogether.common.grpc.TripMembership;
 import com.plantogether.destination.dto.VoteConfigResponse;
 import com.plantogether.destination.exception.DestinationAlreadyChosenException;
-import com.plantogether.destination.grpc.client.TripGrpcClient;
 import com.plantogether.destination.model.DestinationStatus;
 import com.plantogether.destination.model.DestinationVoteConfig;
 import com.plantogether.destination.model.VoteMode;
 import com.plantogether.destination.repository.DestinationRepository;
 import com.plantogether.destination.repository.DestinationVoteConfigRepository;
 import com.plantogether.destination.repository.DestinationVoteRepository;
-import com.plantogether.trip.grpc.IsMemberResponse;
 import java.time.Instant;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -21,19 +22,15 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class DestinationVoteConfigService {
 
-  private static final String ROLE_ORGANIZER = "ORGANIZER";
-
   private final DestinationVoteConfigRepository configRepository;
   private final DestinationVoteRepository voteRepository;
   private final DestinationRepository destinationRepository;
-  private final TripGrpcClient tripGrpcClient;
+  private final TripClient tripClient;
   private final TripLockService tripLockService;
 
   @Transactional(readOnly = true)
   public VoteConfigResponse getConfig(UUID tripId, String deviceId) {
-    if (!tripGrpcClient.isMember(tripId.toString(), deviceId)) {
-      throw new AccessDeniedException("Device is not a member of this trip");
-    }
+    tripClient.requireMembership(tripId.toString(), deviceId);
     return configRepository
         .findById(tripId)
         .map(
@@ -53,11 +50,8 @@ public class DestinationVoteConfigService {
 
   @Transactional
   public VoteConfigResponse upsertConfig(UUID tripId, String deviceId, VoteMode newMode) {
-    IsMemberResponse membership = tripGrpcClient.isMemberWithRole(tripId.toString(), deviceId);
-    if (!membership.getIsMember()) {
-      throw new AccessDeniedException("Device is not a member of this trip");
-    }
-    if (!ROLE_ORGANIZER.equals(membership.getRole())) {
+    TripMembership membership = tripClient.requireMembership(tripId.toString(), deviceId);
+    if (membership.role() != Role.ORGANIZER) {
       throw new AccessDeniedException("Only the trip organizer can configure the vote mode");
     }
 
