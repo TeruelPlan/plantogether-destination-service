@@ -51,7 +51,7 @@ public class DestinationVoteService {
     // because APPROVAL shares the same table with rank IS NULL.
     tripLockService.lock(tripId);
 
-    VoteMode mode = configRepository.findById(tripId).map(c -> c.getMode()).orElse(VoteMode.SIMPLE);
+    VoteMode mode = resolveMode(tripId);
 
     DestinationVote vote;
     switch (mode) {
@@ -114,15 +114,15 @@ public class DestinationVoteService {
       return;
     }
 
-    VoteMode mode =
-        configRepository
-            .findById(destination.getTripId())
-            .map(c -> c.getMode())
-            .orElse(VoteMode.SIMPLE);
+    VoteMode mode = resolveMode(destination.getTripId());
 
     eventPublisher.publishEvent(
         new VoteCastInternalEvent(
             destination.getTripId(), destinationId, deviceUuid, mode, "RETRACTED"));
+  }
+
+  private VoteMode resolveMode(UUID tripId) {
+    return configRepository.findById(tripId).map(c -> c.getMode()).orElse(VoteMode.SIMPLE);
   }
 
   private void requireNotChosen(UUID tripId) {

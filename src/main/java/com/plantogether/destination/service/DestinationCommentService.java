@@ -16,12 +16,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-@Slf4j
 @Service
 @RequiredArgsConstructor
 public class DestinationCommentService {
@@ -36,7 +34,7 @@ public class DestinationCommentService {
   @Transactional
   public CommentResponse addComment(UUID destinationId, String deviceIdStr, AddCommentRequest req) {
     Destination destination = loadDestination(destinationId);
-    Map<UUID, String> displayNames = authorizeAndResolveMembers(destination, deviceIdStr);
+    String authorName = authorizeAndGetDisplayName(destination, deviceIdStr);
 
     UUID deviceUuid = UUID.fromString(deviceIdStr);
     DestinationComment saved =
@@ -56,7 +54,7 @@ public class DestinationCommentService {
             saved.getDeviceId(),
             saved.getCreatedAt()));
 
-    return CommentResponse.from(saved, displayNames.getOrDefault(deviceUuid, UNKNOWN_MEMBER));
+    return CommentResponse.from(saved, authorName);
   }
 
   @Transactional(readOnly = true)
@@ -84,10 +82,19 @@ public class DestinationCommentService {
             () -> new ResourceNotFoundException("Destination not found with id: " + destinationId));
   }
 
-  /**
-   * Single gRPC roundtrip: fetches members and uses the same list for the membership check and
-   * display-name resolution. Replaces the previous {@code isMember + getTripMembers} pair.
-   */
+  private String authorizeAndGetDisplayName(Destination destination, String deviceIdStr) {
+    List<TripMember> members = tripClient.getTripMembers(destination.getTripId().toString());
+    return members.stream()
+        .filter(m -> m.deviceId().toString().equals(deviceIdStr))
+        .findFirst()
+        .map(
+            m ->
+                (m.displayName() == null || m.displayName().isBlank())
+                    ? UNKNOWN_MEMBER
+                    : m.displayName())
+        .orElseThrow(() -> new AccessDeniedException("Device is not a member of this trip"));
+  }
+
   private Map<UUID, String> authorizeAndResolveMembers(
       Destination destination, String deviceIdStr) {
     List<TripMember> members = tripClient.getTripMembers(destination.getTripId().toString());
