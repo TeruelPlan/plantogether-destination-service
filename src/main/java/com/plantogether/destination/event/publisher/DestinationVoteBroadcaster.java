@@ -22,6 +22,8 @@ public class DestinationVoteBroadcaster {
             .tripId(internal.tripId().toString())
             .destinationId(internal.destinationId().toString())
             .deviceId(internal.deviceId().toString())
+            .tripMemberId(
+                internal.tripMemberId() != null ? internal.tripMemberId().toString() : null)
             .voteMode(internal.mode().name())
             .voteValue(internal.voteValue())
             .occurredAt(internal.occurredAt())

@@ -31,6 +31,9 @@ public class DestinationVote {
   @Column(name = "device_id", nullable = false)
   private UUID deviceId;
 
+  @Column(name = "trip_member_id")
+  private UUID tripMemberId;
+
   @Column(name = "rank")
   private Integer rank;
 

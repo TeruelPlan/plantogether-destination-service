@@ -28,7 +28,9 @@ public class DestinationService {
   @Transactional
   public DestinationResponse proposeDestination(
       UUID tripId, String deviceId, ProposeDestinationRequest req) {
-    tripClient.requireMembership(tripId.toString(), deviceId);
+    var membership = tripClient.requireMembership(tripId.toString(), deviceId);
+    UUID memberUuid =
+        membership.tripMemberId() != null ? UUID.fromString(membership.tripMemberId()) : null;
 
     requireNotChosen(tripId);
 
@@ -42,6 +44,7 @@ public class DestinationService {
             .currency(req.getCurrency())
             .externalUrl(req.getExternalUrl())
             .proposedBy(UUID.fromString(deviceId))
+            .proposedByTripMemberId(memberUuid)
             .build();
 
     Destination saved = repository.save(entity);

@@ -61,9 +61,12 @@ public class DestinationSelectionService {
 
     Instant chosenAt = Instant.now();
     UUID deviceUuid = UUID.fromString(deviceId);
+    UUID memberUuid =
+        membership.tripMemberId() != null ? UUID.fromString(membership.tripMemberId()) : null;
     destination.setStatus(DestinationStatus.CHOSEN);
     destination.setChosenAt(chosenAt);
     destination.setChosenBy(deviceUuid);
+    destination.setChosenByTripMemberId(memberUuid);
     Destination saved = repository.save(destination);
 
     eventPublisher.publishEvent(

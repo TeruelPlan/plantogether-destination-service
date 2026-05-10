@@ -28,12 +28,16 @@ public class DestinationResponse {
   private BigDecimal estimatedBudget;
   private String currency;
   private String externalUrl;
+  // Legacy field — will be removed in Phase 3.
   private UUID proposedByDeviceId;
+  private UUID proposedByMemberId;
   private Instant createdAt;
   private Instant updatedAt;
   private DestinationStatus status;
   private Instant chosenAt;
+  // Legacy field — will be removed in Phase 3.
   private UUID chosenByDeviceId;
+  private UUID chosenByMemberId;
   private VoteAggregate votes;
 
   public static DestinationResponse from(
@@ -58,11 +62,13 @@ public class DestinationResponse {
         .currency(entity.getCurrency())
         .externalUrl(entity.getExternalUrl())
         .proposedByDeviceId(entity.getProposedBy())
+        .proposedByMemberId(entity.getProposedByTripMemberId())
         .createdAt(entity.getCreatedAt())
         .updatedAt(entity.getUpdatedAt())
         .status(entity.getStatus() == null ? DestinationStatus.PROPOSED : entity.getStatus())
         .chosenAt(entity.getChosenAt())
         .chosenByDeviceId(entity.getChosenBy())
+        .chosenByMemberId(entity.getChosenByTripMemberId())
         .votes(
             VoteAggregate.builder()
                 .totalVotes(votesForDestination.size())

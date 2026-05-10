@@ -41,6 +41,9 @@ public class DestinationComment {
   @Column(name = "device_id", nullable = false)
   private UUID deviceId;
 
+  @Column(name = "trip_member_id")
+  private UUID tripMemberId;
+
   @NotBlank
   @Size(max = 2000)
   @Column(nullable = false, columnDefinition = "TEXT")

@@ -40,7 +40,9 @@ public class DestinationVoteService {
             .orElseThrow(
                 () -> new ResourceNotFoundException("Destination not found: " + destinationId));
 
-    tripClient.requireMembership(destination.getTripId().toString(), deviceId);
+    var membership = tripClient.requireMembership(destination.getTripId().toString(), deviceId);
+    UUID memberUuid =
+        membership.tripMemberId() != null ? UUID.fromString(membership.tripMemberId()) : null;
 
     UUID tripId = destination.getTripId();
     requireNotChosen(tripId);
@@ -56,11 +58,11 @@ public class DestinationVoteService {
     DestinationVote vote;
     switch (mode) {
       case SIMPLE -> {
-        vote = upsert(destinationId, tripId, deviceUuid, null);
+        vote = upsert(destinationId, tripId, deviceUuid, memberUuid, null);
         voteRepository.deleteOtherTripVotes(tripId, deviceUuid, destinationId);
       }
       case APPROVAL -> {
-        vote = upsert(destinationId, tripId, deviceUuid, null);
+        vote = upsert(destinationId, tripId, deviceUuid, memberUuid, null);
       }
       case RANKING -> {
         if (req == null || req.getRank() == null) {
@@ -73,7 +75,7 @@ public class DestinationVoteService {
               HttpStatus.BAD_REQUEST, "rank must be <= number of destinations (" + n + ")");
         }
         voteRepository.clearRankForSwap(tripId, deviceUuid, req.getRank(), destinationId);
-        vote = upsert(destinationId, tripId, deviceUuid, req.getRank());
+        vote = upsert(destinationId, tripId, deviceUuid, memberUuid, req.getRank());
       }
       default -> throw new IllegalStateException("Unknown vote mode: " + mode);
     }
@@ -85,10 +87,11 @@ public class DestinationVoteService {
         };
 
     eventPublisher.publishEvent(
-        new VoteCastInternalEvent(tripId, destinationId, deviceUuid, mode, voteValue));
+        new VoteCastInternalEvent(tripId, destinationId, deviceUuid, memberUuid, mode, voteValue));
 
     return VoteResponse.builder()
         .voterDeviceId(deviceUuid)
+        .voterMemberId(memberUuid)
         .destinationId(destinationId)
         .rank(vote.getRank())
         .build();
@@ -131,7 +134,8 @@ public class DestinationVoteService {
     }
   }
 
-  private DestinationVote upsert(UUID destinationId, UUID tripId, UUID deviceId, Integer rank) {
+  private DestinationVote upsert(
+      UUID destinationId, UUID tripId, UUID deviceId, UUID tripMemberId, Integer rank) {
     DestinationVote vote =
         voteRepository
             .findByDestinationIdAndDeviceId(destinationId, deviceId)
@@ -140,7 +144,11 @@ public class DestinationVoteService {
                     .destinationId(destinationId)
                     .tripId(tripId)
                     .deviceId(deviceId)
+                    .tripMemberId(tripMemberId)
                     .build());
+    if (vote.getTripMemberId() == null && tripMemberId != null) {
+      vote.setTripMemberId(tripMemberId);
+    }
     vote.setRank(rank);
     return voteRepository.save(vote);
   }

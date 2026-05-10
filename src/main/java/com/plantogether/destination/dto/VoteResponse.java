@@ -9,7 +9,9 @@ import lombok.*;
 @AllArgsConstructor
 public class VoteResponse {
 
+  // Legacy field — will be removed in Phase 3.
   private UUID voterDeviceId;
+  private UUID voterMemberId;
   private UUID destinationId;
   private Integer rank;
 }
