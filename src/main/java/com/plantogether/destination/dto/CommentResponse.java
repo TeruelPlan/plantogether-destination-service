@@ -16,8 +16,6 @@ public class CommentResponse {
 
   private UUID id;
   private UUID destinationId;
-  // Legacy field — will be removed in Phase 3.
-  private UUID authorDeviceId;
   private UUID authorMemberId;
   private String authorDisplayName;
   private String content;
@@ -27,7 +25,6 @@ public class CommentResponse {
     return CommentResponse.builder()
         .id(c.getId())
         .destinationId(c.getDestinationId())
-        .authorDeviceId(c.getDeviceId())
         .authorMemberId(c.getTripMemberId())
         .authorDisplayName(displayName)
         .content(c.getContent())

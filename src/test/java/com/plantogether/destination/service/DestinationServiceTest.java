@@ -45,11 +45,15 @@ class DestinationServiceTest {
 
   private UUID tripId;
   private String deviceId;
+  private String memberId;
+  private UUID memberUuid;
 
   @BeforeEach
   void setUp() {
     tripId = UUID.randomUUID();
     deviceId = UUID.randomUUID().toString();
+    memberUuid = UUID.randomUUID();
+    memberId = memberUuid.toString();
   }
 
   private ProposeDestinationRequest validRequest() {
@@ -65,7 +69,7 @@ class DestinationServiceTest {
   @Test
   void propose_member_savesAndReturnsResponse() {
     when(tripClient.requireMembership(tripId.toString(), deviceId))
-        .thenReturn(new TripMembership(true, Role.PARTICIPANT));
+        .thenReturn(new TripMembership(true, Role.PARTICIPANT, memberId));
     when(repository.save(any(Destination.class)))
         .thenAnswer(
             inv -> {
@@ -80,7 +84,7 @@ class DestinationServiceTest {
 
     assertThat(response.getName()).isEqualTo("Paris");
     assertThat(response.getTripId()).isEqualTo(tripId);
-    assertThat(response.getProposedByDeviceId()).isEqualTo(UUID.fromString(deviceId));
+    assertThat(response.getProposedByMemberId()).isEqualTo(memberUuid);
     assertThat(response.getVotes().getTotalVotes()).isZero();
     assertThat(response.getVotes().getRankVotes()).isEmpty();
     verify(repository).save(any(Destination.class));
@@ -105,7 +109,7 @@ class DestinationServiceTest {
             .id(UUID.randomUUID())
             .tripId(tripId)
             .name("A")
-            .proposedBy(UUID.randomUUID())
+            .proposedByTripMemberId(UUID.randomUUID())
             .createdAt(Instant.now())
             .updatedAt(Instant.now())
             .build();
@@ -114,12 +118,12 @@ class DestinationServiceTest {
             .id(UUID.randomUUID())
             .tripId(tripId)
             .name("B")
-            .proposedBy(UUID.randomUUID())
+            .proposedByTripMemberId(UUID.randomUUID())
             .createdAt(Instant.now().minusSeconds(60))
             .updatedAt(Instant.now().minusSeconds(60))
             .build();
     when(tripClient.requireMembership(tripId.toString(), deviceId))
-        .thenReturn(new TripMembership(true, Role.PARTICIPANT));
+        .thenReturn(new TripMembership(true, Role.PARTICIPANT, memberId));
     when(repository.findByTripIdOrderByCreatedAtDesc(tripId)).thenReturn(List.of(d1, d2));
     when(voteRepository.findByDestinationIdIn(any())).thenReturn(List.of());
 
@@ -131,7 +135,7 @@ class DestinationServiceTest {
   @Test
   void propose_whenTripHasChosen_throws409() {
     when(tripClient.requireMembership(tripId.toString(), deviceId))
-        .thenReturn(new TripMembership(true, Role.PARTICIPANT));
+        .thenReturn(new TripMembership(true, Role.PARTICIPANT, memberId));
     when(repository.findByTripIdAndStatus(tripId, DestinationStatus.CHOSEN))
         .thenReturn(Optional.of(new Destination()));
 

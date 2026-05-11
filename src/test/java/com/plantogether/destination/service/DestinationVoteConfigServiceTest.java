@@ -43,6 +43,8 @@ class DestinationVoteConfigServiceTest {
 
   @InjectMocks private DestinationVoteConfigService service;
 
+  private static final String MEMBER_ID = UUID.randomUUID().toString();
+
   private UUID tripId;
   private String deviceId;
 
@@ -55,7 +57,7 @@ class DestinationVoteConfigServiceTest {
   @Test
   void getConfig_absent_returnsDefaultSimple() {
     when(tripClient.requireMembership(tripId.toString(), deviceId))
-        .thenReturn(new TripMembership(true, Role.PARTICIPANT));
+        .thenReturn(new TripMembership(true, Role.PARTICIPANT, MEMBER_ID));
     when(configRepository.findById(tripId)).thenReturn(Optional.empty());
 
     VoteConfigResponse response = service.getConfig(tripId, deviceId);
@@ -80,7 +82,7 @@ class DestinationVoteConfigServiceTest {
   @Test
   void upsertConfig_organizer_persistsAndReturns() {
     when(tripClient.requireMembership(tripId.toString(), deviceId))
-        .thenReturn(new TripMembership(true, Role.ORGANIZER));
+        .thenReturn(new TripMembership(true, Role.ORGANIZER, MEMBER_ID));
     when(configRepository.findById(tripId)).thenReturn(Optional.empty());
     when(configRepository.save(any(DestinationVoteConfig.class)))
         .thenAnswer(inv -> inv.getArgument(0));
@@ -98,7 +100,7 @@ class DestinationVoteConfigServiceTest {
   @Test
   void upsertConfig_participant_throwsAccessDenied() {
     when(tripClient.requireMembership(tripId.toString(), deviceId))
-        .thenReturn(new TripMembership(true, Role.PARTICIPANT));
+        .thenReturn(new TripMembership(true, Role.PARTICIPANT, MEMBER_ID));
 
     assertThatThrownBy(() -> service.upsertConfig(tripId, deviceId, VoteMode.RANKING))
         .isInstanceOf(AccessDeniedException.class);
@@ -110,7 +112,7 @@ class DestinationVoteConfigServiceTest {
   @Test
   void upsertConfig_switchToSimple_nullsAllRanksForTrip() {
     when(tripClient.requireMembership(tripId.toString(), deviceId))
-        .thenReturn(new TripMembership(true, Role.ORGANIZER));
+        .thenReturn(new TripMembership(true, Role.ORGANIZER, MEMBER_ID));
     when(configRepository.findById(tripId)).thenReturn(Optional.empty());
     when(configRepository.save(any(DestinationVoteConfig.class)))
         .thenAnswer(inv -> inv.getArgument(0));
@@ -123,7 +125,7 @@ class DestinationVoteConfigServiceTest {
   @Test
   void upsertConfig_switchToRanking_preservesRanks() {
     when(tripClient.requireMembership(tripId.toString(), deviceId))
-        .thenReturn(new TripMembership(true, Role.ORGANIZER));
+        .thenReturn(new TripMembership(true, Role.ORGANIZER, MEMBER_ID));
     DestinationVoteConfig existing =
         DestinationVoteConfig.builder()
             .tripId(tripId)
@@ -142,7 +144,7 @@ class DestinationVoteConfigServiceTest {
   @Test
   void upsertConfig_switchToApproval_nullsAllRanksForTrip() {
     when(tripClient.requireMembership(tripId.toString(), deviceId))
-        .thenReturn(new TripMembership(true, Role.ORGANIZER));
+        .thenReturn(new TripMembership(true, Role.ORGANIZER, MEMBER_ID));
     when(configRepository.findById(tripId)).thenReturn(Optional.empty());
     when(configRepository.save(any(DestinationVoteConfig.class)))
         .thenAnswer(inv -> inv.getArgument(0));
@@ -155,7 +157,7 @@ class DestinationVoteConfigServiceTest {
   @Test
   void upsertConfig_whenTripHasChosen_throws409() {
     when(tripClient.requireMembership(tripId.toString(), deviceId))
-        .thenReturn(new TripMembership(true, Role.ORGANIZER));
+        .thenReturn(new TripMembership(true, Role.ORGANIZER, MEMBER_ID));
     when(destinationRepository.findByTripIdAndStatus(tripId, DestinationStatus.CHOSEN))
         .thenReturn(Optional.of(new Destination()));
 

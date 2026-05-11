@@ -54,6 +54,7 @@ class IsMemberGateTest {
 
   private static final String SERVER_NAME = "test-trip-grpc-" + UUID.randomUUID();
   private static final String DEVICE_ID = UUID.randomUUID().toString();
+  private static final String MEMBER_ID = UUID.randomUUID().toString();
 
   private Server mockTripServer;
   private ManagedChannel channel;
@@ -233,11 +234,12 @@ class IsMemberGateTest {
         IsMemberRequest request, StreamObserver<IsMemberResponse> responseObserver) {
       callCount++;
       lastRequest = request;
-      responseObserver.onNext(
-          IsMemberResponse.newBuilder()
-              .setIsMember(memberResult)
-              .setRole(role != null ? role : "")
-              .build());
+      IsMemberResponse.Builder resp =
+          IsMemberResponse.newBuilder().setIsMember(memberResult).setRole(role != null ? role : "");
+      if (memberResult) {
+        resp.setTripMemberId(MEMBER_ID);
+      }
+      responseObserver.onNext(resp.build());
       responseObserver.onCompleted();
     }
   }

@@ -46,12 +46,12 @@ class DestinationSelectionControllerTest {
         .id(destinationId)
         .tripId(tripId)
         .name("Lisbon")
-        .proposedByDeviceId(UUID.randomUUID())
+        .proposedByMemberId(UUID.randomUUID())
         .createdAt(Instant.now())
         .updatedAt(Instant.now())
         .status(DestinationStatus.CHOSEN)
         .chosenAt(Instant.now())
-        .chosenByDeviceId(deviceId)
+        .chosenByMemberId(deviceId)
         .build();
   }
 
@@ -66,7 +66,7 @@ class DestinationSelectionControllerTest {
                 .header("X-Device-Id", deviceId.toString()))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.status").value("CHOSEN"))
-        .andExpect(jsonPath("$.chosenByDeviceId").value(deviceId.toString()));
+        .andExpect(jsonPath("$.chosenByMemberId").value(deviceId.toString()));
   }
 
   @Test

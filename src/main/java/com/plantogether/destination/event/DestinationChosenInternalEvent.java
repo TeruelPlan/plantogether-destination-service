@@ -7,6 +7,6 @@ public record DestinationChosenInternalEvent(
     UUID tripId,
     UUID destinationId,
     String destinationName,
-    UUID chosenByDeviceId,
+    String chosenByDeviceId,
     Instant chosenAt,
     UUID previousChosenDestinationId) {}

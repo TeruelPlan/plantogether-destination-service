@@ -46,7 +46,7 @@ class DestinationVoteControllerTest {
     when(voteService.castVote(eq(destinationId), eq(deviceId.toString()), any()))
         .thenReturn(
             VoteResponse.builder()
-                .voterDeviceId(deviceId)
+                .voterMemberId(deviceId)
                 .destinationId(destinationId)
                 .rank(null)
                 .build());

@@ -41,15 +41,13 @@ public class DestinationVoteService {
                 () -> new ResourceNotFoundException("Destination not found: " + destinationId));
 
     var membership = tripClient.requireMembership(destination.getTripId().toString(), deviceId);
-    UUID memberUuid =
-        membership.tripMemberId() != null ? UUID.fromString(membership.tripMemberId()) : null;
+    UUID memberUuid = UUID.fromString(membership.tripMemberId());
 
     UUID tripId = destination.getTripId();
     requireNotChosen(tripId);
-    UUID deviceUuid = UUID.fromString(deviceId);
 
     // Serialize mode-aware writes: SIMPLE "one vote per trip" and RANKING "unique rank per
-    // device" invariants span multiple rows and cannot be expressed as pure DB constraints
+    // member" invariants span multiple rows and cannot be expressed as pure DB constraints
     // because APPROVAL shares the same table with rank IS NULL.
     tripLockService.lock(tripId);
 
@@ -58,11 +56,11 @@ public class DestinationVoteService {
     DestinationVote vote;
     switch (mode) {
       case SIMPLE -> {
-        vote = upsert(destinationId, tripId, deviceUuid, memberUuid, null);
-        voteRepository.deleteOtherTripVotes(tripId, deviceUuid, destinationId);
+        vote = upsert(destinationId, tripId, memberUuid, null);
+        voteRepository.deleteOtherTripVotes(tripId, memberUuid, destinationId);
       }
       case APPROVAL -> {
-        vote = upsert(destinationId, tripId, deviceUuid, memberUuid, null);
+        vote = upsert(destinationId, tripId, memberUuid, null);
       }
       case RANKING -> {
         if (req == null || req.getRank() == null) {
@@ -74,8 +72,8 @@ public class DestinationVoteService {
           throw new ResponseStatusException(
               HttpStatus.BAD_REQUEST, "rank must be <= number of destinations (" + n + ")");
         }
-        voteRepository.clearRankForSwap(tripId, deviceUuid, req.getRank(), destinationId);
-        vote = upsert(destinationId, tripId, deviceUuid, memberUuid, req.getRank());
+        voteRepository.clearRankForSwap(tripId, memberUuid, req.getRank(), destinationId);
+        vote = upsert(destinationId, tripId, memberUuid, req.getRank());
       }
       default -> throw new IllegalStateException("Unknown vote mode: " + mode);
     }
@@ -87,10 +85,9 @@ public class DestinationVoteService {
         };
 
     eventPublisher.publishEvent(
-        new VoteCastInternalEvent(tripId, destinationId, deviceUuid, memberUuid, mode, voteValue));
+        new VoteCastInternalEvent(tripId, destinationId, memberUuid, mode, voteValue));
 
     return VoteResponse.builder()
-        .voterDeviceId(deviceUuid)
         .voterMemberId(memberUuid)
         .destinationId(destinationId)
         .rank(vote.getRank())
@@ -105,14 +102,12 @@ public class DestinationVoteService {
             .orElseThrow(
                 () -> new ResourceNotFoundException("Destination not found: " + destinationId));
 
-    tripClient.requireMembership(destination.getTripId().toString(), deviceId);
+    var membership = tripClient.requireMembership(destination.getTripId().toString(), deviceId);
+    UUID memberUuid = UUID.fromString(membership.tripMemberId());
 
     requireNotChosen(destination.getTripId());
 
-    UUID deviceUuid = UUID.fromString(deviceId);
-    // Retract is a single-row delete gated by the (destination_id, device_id) unique
-    // constraint — no cross-row invariant, no lock needed.
-    int deleted = voteRepository.deleteByDestinationIdAndDeviceId(destinationId, deviceUuid);
+    int deleted = voteRepository.deleteByDestinationIdAndTripMemberId(destinationId, memberUuid);
     if (deleted == 0) {
       return;
     }
@@ -121,7 +116,7 @@ public class DestinationVoteService {
 
     eventPublisher.publishEvent(
         new VoteCastInternalEvent(
-            destination.getTripId(), destinationId, deviceUuid, mode, "RETRACTED"));
+            destination.getTripId(), destinationId, memberUuid, mode, "RETRACTED"));
   }
 
   private VoteMode resolveMode(UUID tripId) {
@@ -134,21 +129,16 @@ public class DestinationVoteService {
     }
   }
 
-  private DestinationVote upsert(
-      UUID destinationId, UUID tripId, UUID deviceId, UUID tripMemberId, Integer rank) {
+  private DestinationVote upsert(UUID destinationId, UUID tripId, UUID tripMemberId, Integer rank) {
     DestinationVote vote =
         voteRepository
-            .findByDestinationIdAndDeviceId(destinationId, deviceId)
+            .findByDestinationIdAndTripMemberId(destinationId, tripMemberId)
             .orElse(
                 DestinationVote.builder()
                     .destinationId(destinationId)
                     .tripId(tripId)
-                    .deviceId(deviceId)
                     .tripMemberId(tripMemberId)
                     .build());
-    if (vote.getTripMemberId() == null && tripMemberId != null) {
-      vote.setTripMemberId(tripMemberId);
-    }
     vote.setRank(rank);
     return voteRepository.save(vote);
   }

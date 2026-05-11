@@ -45,14 +45,14 @@ class DestinationCommentBroadcasterTest {
     UUID tripId = UUID.randomUUID();
     UUID destinationId = UUID.randomUUID();
     UUID commentId = UUID.randomUUID();
-    UUID authorDeviceId = UUID.randomUUID();
+    UUID authorMemberId = UUID.randomUUID();
     Instant ts = Instant.parse("2026-04-25T10:00:00Z");
 
     transactionTemplate.executeWithoutResult(
         status -> {
           eventPublisher.publishEvent(
               new DestinationCommentAddedInternalEvent(
-                  tripId, destinationId, commentId, authorDeviceId, ts));
+                  tripId, destinationId, commentId, authorMemberId, ts));
           verify(rabbitTemplate, never())
               .convertAndSend(
                   eq(RabbitConfig.EXCHANGE),
@@ -72,7 +72,7 @@ class DestinationCommentBroadcasterTest {
     assertThat(sent.getTripId()).isEqualTo(tripId);
     assertThat(sent.getDestinationId()).isEqualTo(destinationId);
     assertThat(sent.getCommentId()).isEqualTo(commentId);
-    assertThat(sent.getAuthorDeviceId()).isEqualTo(authorDeviceId);
+    assertThat(sent.getAuthorMemberId()).isEqualTo(authorMemberId);
     assertThat(sent.getOccurredAt()).isEqualTo(ts);
   }
 

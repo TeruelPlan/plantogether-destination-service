@@ -13,33 +13,34 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface DestinationVoteRepository extends JpaRepository<DestinationVote, UUID> {
 
-  Optional<DestinationVote> findByDestinationIdAndDeviceId(UUID destinationId, UUID deviceId);
+  Optional<DestinationVote> findByDestinationIdAndTripMemberId(
+      UUID destinationId, UUID tripMemberId);
 
-  List<DestinationVote> findByTripIdAndDeviceId(UUID tripId, UUID deviceId);
+  List<DestinationVote> findByTripIdAndTripMemberId(UUID tripId, UUID tripMemberId);
 
   List<DestinationVote> findByDestinationIdIn(Collection<UUID> destinationIds);
 
-  Optional<DestinationVote> findByTripIdAndDeviceIdAndRank(
-      UUID tripId, UUID deviceId, Integer rank);
+  Optional<DestinationVote> findByTripIdAndTripMemberIdAndRank(
+      UUID tripId, UUID tripMemberId, Integer rank);
 
   @Modifying
   @Query(
-      "delete from DestinationVote v where v.destinationId = :destinationId and v.deviceId ="
-          + " :deviceId")
-  int deleteByDestinationIdAndDeviceId(UUID destinationId, UUID deviceId);
+      "delete from DestinationVote v where v.destinationId = :destinationId and v.tripMemberId ="
+          + " :tripMemberId")
+  int deleteByDestinationIdAndTripMemberId(UUID destinationId, UUID tripMemberId);
 
   @Modifying
   @Query(
-      "delete from DestinationVote v where v.tripId = :tripId and v.deviceId = :deviceId and"
-          + " v.destinationId <> :keepDestinationId")
-  int deleteOtherTripVotes(UUID tripId, UUID deviceId, UUID keepDestinationId);
+      "delete from DestinationVote v where v.tripId = :tripId and v.tripMemberId = :tripMemberId"
+          + " and v.destinationId <> :keepDestinationId")
+  int deleteOtherTripVotes(UUID tripId, UUID tripMemberId, UUID keepDestinationId);
 
   @Modifying
   @Query(
       "update DestinationVote v set v.rank = null, v.updatedAt = current_timestamp where v.tripId ="
-          + " :tripId and v.deviceId = :deviceId and v.rank = :rank and v.destinationId <>"
+          + " :tripId and v.tripMemberId = :tripMemberId and v.rank = :rank and v.destinationId <>"
           + " :keepDestinationId")
-  int clearRankForSwap(UUID tripId, UUID deviceId, Integer rank, UUID keepDestinationId);
+  int clearRankForSwap(UUID tripId, UUID tripMemberId, Integer rank, UUID keepDestinationId);
 
   @Modifying
   @Query(

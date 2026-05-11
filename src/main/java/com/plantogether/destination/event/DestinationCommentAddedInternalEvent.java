@@ -4,4 +4,4 @@ import java.time.Instant;
 import java.util.UUID;
 
 public record DestinationCommentAddedInternalEvent(
-    UUID tripId, UUID destinationId, UUID commentId, UUID authorDeviceId, Instant occurredAt) {}
+    UUID tripId, UUID destinationId, UUID commentId, UUID authorMemberId, Instant occurredAt) {}

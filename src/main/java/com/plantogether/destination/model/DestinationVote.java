@@ -9,7 +9,7 @@ import org.hibernate.annotations.UuidGenerator;
 @Entity
 @Table(
     name = "destination_vote",
-    uniqueConstraints = @UniqueConstraint(columnNames = {"destination_id", "device_id"}))
+    uniqueConstraints = @UniqueConstraint(columnNames = {"destination_id", "trip_member_id"}))
 @Getter
 @Setter
 @NoArgsConstructor
@@ -28,10 +28,7 @@ public class DestinationVote {
   @Column(name = "trip_id", nullable = false)
   private UUID tripId;
 
-  @Column(name = "device_id", nullable = false)
-  private UUID deviceId;
-
-  @Column(name = "trip_member_id")
+  @Column(name = "trip_member_id", nullable = false)
   private UUID tripMemberId;
 
   @Column(name = "rank")

@@ -40,7 +40,7 @@ class DestinationChosenBroadcasterTest {
   void afterCommit_sendsToExchangeWithRoutingKey() {
     UUID tripId = UUID.randomUUID();
     UUID destinationId = UUID.randomUUID();
-    UUID deviceId = UUID.randomUUID();
+    String deviceId = UUID.randomUUID().toString();
     Instant chosenAt = Instant.now();
 
     transactionTemplate.executeWithoutResult(
@@ -61,7 +61,7 @@ class DestinationChosenBroadcasterTest {
     assertThat(sent.getTripId()).isEqualTo(tripId.toString());
     assertThat(sent.getDestinationId()).isEqualTo(destinationId.toString());
     assertThat(sent.getDestinationName()).isEqualTo("Lisbon");
-    assertThat(sent.getChosenByDeviceId()).isEqualTo(deviceId.toString());
+    assertThat(sent.getChosenByDeviceId()).isEqualTo(deviceId);
     assertThat(sent.getChosenAt()).isEqualTo(chosenAt);
     assertThat(sent.getPreviousChosenDestinationId()).isNull();
     assertThat(sent.getOccurredAt()).isNotNull();
@@ -71,7 +71,7 @@ class DestinationChosenBroadcasterTest {
   void rollback_doesNotSend() {
     UUID tripId = UUID.randomUUID();
     UUID destinationId = UUID.randomUUID();
-    UUID deviceId = UUID.randomUUID();
+    String deviceId = UUID.randomUUID().toString();
 
     transactionTemplate.executeWithoutResult(
         status -> {
@@ -99,7 +99,7 @@ class DestinationChosenBroadcasterTest {
                     UUID.randomUUID(),
                     UUID.randomUUID(),
                     "Lisbon",
-                    UUID.randomUUID(),
+                    UUID.randomUUID().toString(),
                     Instant.now(),
                     previousId)));
 
@@ -122,7 +122,7 @@ class DestinationChosenBroadcasterTest {
                     UUID.randomUUID(),
                     UUID.randomUUID(),
                     "Lisbon",
-                    UUID.randomUUID(),
+                    UUID.randomUUID().toString(),
                     Instant.now(),
                     null)));
 

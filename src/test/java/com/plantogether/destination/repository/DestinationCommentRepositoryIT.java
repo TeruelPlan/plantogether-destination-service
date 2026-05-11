@@ -54,7 +54,11 @@ class DestinationCommentRepositoryIT {
   void findByDestination_orderedByCreatedAtAscThenIdAsc_whenTimestampsCollide() {
     UUID tripId = UUID.randomUUID();
     Destination destination =
-        Destination.builder().tripId(tripId).name("Lisbon").proposedBy(UUID.randomUUID()).build();
+        Destination.builder()
+            .tripId(tripId)
+            .name("Lisbon")
+            .proposedByTripMemberId(UUID.randomUUID())
+            .build();
     em.persist(destination);
     em.flush();
 
@@ -63,7 +67,7 @@ class DestinationCommentRepositoryIT {
         DestinationComment.builder()
             .destinationId(destination.getId())
             .tripId(tripId)
-            .deviceId(UUID.randomUUID())
+            .tripMemberId(UUID.randomUUID())
             .content("first")
             .createdAt(sharedAt)
             .build();
@@ -71,7 +75,7 @@ class DestinationCommentRepositoryIT {
         DestinationComment.builder()
             .destinationId(destination.getId())
             .tripId(tripId)
-            .deviceId(UUID.randomUUID())
+            .tripMemberId(UUID.randomUUID())
             .content("second")
             .createdAt(sharedAt)
             .build();
@@ -79,7 +83,7 @@ class DestinationCommentRepositoryIT {
         DestinationComment.builder()
             .destinationId(destination.getId())
             .tripId(tripId)
-            .deviceId(UUID.randomUUID())
+            .tripMemberId(UUID.randomUUID())
             .content("third")
             .createdAt(sharedAt.plusSeconds(1))
             .build();

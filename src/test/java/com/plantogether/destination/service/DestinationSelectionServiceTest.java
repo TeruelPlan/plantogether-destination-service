@@ -40,7 +40,8 @@ class DestinationSelectionServiceTest {
 
   private UUID tripId;
   private UUID destinationId;
-  private UUID deviceUuid;
+  private UUID memberUuid;
+  private String memberId;
   private String deviceId;
   private Destination destination;
 
@@ -48,14 +49,15 @@ class DestinationSelectionServiceTest {
   void setUp() {
     tripId = UUID.randomUUID();
     destinationId = UUID.randomUUID();
-    deviceUuid = UUID.randomUUID();
-    deviceId = deviceUuid.toString();
+    memberUuid = UUID.randomUUID();
+    memberId = memberUuid.toString();
+    deviceId = UUID.randomUUID().toString();
     destination =
         Destination.builder()
             .id(destinationId)
             .tripId(tripId)
             .name("Lisbon")
-            .proposedBy(UUID.randomUUID())
+            .proposedByTripMemberId(UUID.randomUUID())
             .status(DestinationStatus.PROPOSED)
             .createdAt(Instant.now())
             .updatedAt(Instant.now())
@@ -64,7 +66,7 @@ class DestinationSelectionServiceTest {
 
   private void stubOrganizer() {
     when(tripClient.requireMembership(tripId.toString(), deviceId))
-        .thenReturn(new TripMembership(true, Role.ORGANIZER));
+        .thenReturn(new TripMembership(true, Role.ORGANIZER, memberId));
   }
 
   @Test
@@ -78,7 +80,7 @@ class DestinationSelectionServiceTest {
     DestinationResponse response = service.selectDestination(destinationId, deviceId);
 
     assertThat(response.getStatus()).isEqualTo(DestinationStatus.CHOSEN);
-    assertThat(response.getChosenByDeviceId()).isEqualTo(deviceUuid);
+    assertThat(response.getChosenByMemberId()).isEqualTo(memberUuid);
     assertThat(destination.getStatus()).isEqualTo(DestinationStatus.CHOSEN);
 
     ArgumentCaptor<DestinationChosenInternalEvent> captor =
@@ -95,10 +97,10 @@ class DestinationSelectionServiceTest {
             .id(UUID.randomUUID())
             .tripId(tripId)
             .name("Rome")
-            .proposedBy(UUID.randomUUID())
+            .proposedByTripMemberId(UUID.randomUUID())
             .status(DestinationStatus.CHOSEN)
             .chosenAt(Instant.now())
-            .chosenBy(UUID.randomUUID())
+            .chosenByTripMemberId(UUID.randomUUID())
             .createdAt(Instant.now())
             .updatedAt(Instant.now())
             .build();
@@ -112,7 +114,7 @@ class DestinationSelectionServiceTest {
 
     assertThat(previous.getStatus()).isEqualTo(DestinationStatus.PROPOSED);
     assertThat(previous.getChosenAt()).isNull();
-    assertThat(previous.getChosenBy()).isNull();
+    assertThat(previous.getChosenByTripMemberId()).isNull();
     assertThat(destination.getStatus()).isEqualTo(DestinationStatus.CHOSEN);
     verify(repository).flush();
   }
@@ -121,7 +123,7 @@ class DestinationSelectionServiceTest {
   void select_sameDestination_isIdempotent_noSecondEvent() {
     destination.setStatus(DestinationStatus.CHOSEN);
     destination.setChosenAt(Instant.now());
-    destination.setChosenBy(deviceUuid);
+    destination.setChosenByTripMemberId(memberUuid);
     when(repository.findById(destinationId)).thenReturn(Optional.of(destination));
     stubOrganizer();
 
@@ -157,7 +159,7 @@ class DestinationSelectionServiceTest {
   void select_participant_throwsAccessDenied_withOrganizerMessage() {
     when(repository.findById(destinationId)).thenReturn(Optional.of(destination));
     when(tripClient.requireMembership(tripId.toString(), deviceId))
-        .thenReturn(new TripMembership(true, Role.PARTICIPANT));
+        .thenReturn(new TripMembership(true, Role.PARTICIPANT, memberId));
 
     assertThatThrownBy(() -> service.selectDestination(destinationId, deviceId))
         .isInstanceOf(AccessDeniedException.class)
@@ -172,7 +174,7 @@ class DestinationSelectionServiceTest {
             .id(previousId)
             .tripId(tripId)
             .name("Rome")
-            .proposedBy(UUID.randomUUID())
+            .proposedByTripMemberId(UUID.randomUUID())
             .status(DestinationStatus.CHOSEN)
             .createdAt(Instant.now())
             .updatedAt(Instant.now())

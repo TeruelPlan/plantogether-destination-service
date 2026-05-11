@@ -38,10 +38,7 @@ public class DestinationComment {
   @Column(name = "trip_id", nullable = false)
   private UUID tripId;
 
-  @Column(name = "device_id", nullable = false)
-  private UUID deviceId;
-
-  @Column(name = "trip_member_id")
+  @Column(name = "trip_member_id", nullable = false)
   private UUID tripMemberId;
 
   @NotBlank

@@ -34,20 +34,16 @@ public class DestinationCommentService {
   @Transactional
   public CommentResponse addComment(UUID destinationId, String deviceIdStr, AddCommentRequest req) {
     Destination destination = loadDestination(destinationId);
-    TripMember author = authorizeAndGetMember(destination, deviceIdStr);
-    String authorName =
-        (author.displayName() == null || author.displayName().isBlank())
-            ? UNKNOWN_MEMBER
-            : author.displayName();
-    UUID memberUuid = author.tripMemberId() != null ? UUID.fromString(author.tripMemberId()) : null;
+    var membership = tripClient.requireMembership(destination.getTripId().toString(), deviceIdStr);
+    UUID memberUuid = UUID.fromString(membership.tripMemberId());
 
-    UUID deviceUuid = UUID.fromString(deviceIdStr);
+    String authorName = resolveDisplayName(destination.getTripId(), memberUuid);
+
     DestinationComment saved =
         commentRepository.save(
             DestinationComment.builder()
                 .destinationId(destinationId)
                 .tripId(destination.getTripId())
-                .deviceId(deviceUuid)
                 .tripMemberId(memberUuid)
                 .content(req.getContent())
                 .build());
@@ -57,7 +53,7 @@ public class DestinationCommentService {
             saved.getTripId(),
             saved.getDestinationId(),
             saved.getId(),
-            saved.getDeviceId(),
+            saved.getTripMemberId(),
             saved.getCreatedAt()));
 
     return CommentResponse.from(saved, authorName);
@@ -77,7 +73,8 @@ public class DestinationCommentService {
     return comments.stream()
         .map(
             c ->
-                CommentResponse.from(c, displayNames.getOrDefault(c.getDeviceId(), UNKNOWN_MEMBER)))
+                CommentResponse.from(
+                    c, displayNames.getOrDefault(c.getTripMemberId(), UNKNOWN_MEMBER)))
         .toList();
   }
 
@@ -88,26 +85,31 @@ public class DestinationCommentService {
             () -> new ResourceNotFoundException("Destination not found with id: " + destinationId));
   }
 
-  private TripMember authorizeAndGetMember(Destination destination, String deviceIdStr) {
-    List<TripMember> members = tripClient.getTripMembers(destination.getTripId().toString());
-    return members.stream()
-        .filter(m -> m.deviceId().toString().equals(deviceIdStr))
+  private String resolveDisplayName(UUID tripId, UUID memberUuid) {
+    return tripClient.getTripMembers(tripId.toString()).stream()
+        .filter(m -> memberUuid.toString().equals(m.tripMemberId()))
         .findFirst()
-        .orElseThrow(() -> new AccessDeniedException("Device is not a member of this trip"));
+        .map(
+            m ->
+                (m.displayName() == null || m.displayName().isBlank())
+                    ? UNKNOWN_MEMBER
+                    : m.displayName())
+        .orElse(UNKNOWN_MEMBER);
   }
 
   private Map<UUID, String> authorizeAndResolveMembers(
       Destination destination, String deviceIdStr) {
+    tripClient.requireMembership(destination.getTripId().toString(), deviceIdStr);
     List<TripMember> members = tripClient.getTripMembers(destination.getTripId().toString());
-    boolean isMember = members.stream().anyMatch(m -> m.deviceId().toString().equals(deviceIdStr));
-    if (!isMember) {
-      throw new AccessDeniedException("Device is not a member of this trip");
+    if (members.isEmpty()) {
+      throw new AccessDeniedException("Trip has no members");
     }
     Map<UUID, String> displayNames = new HashMap<>();
     for (TripMember m : members) {
       String name = m.displayName();
       displayNames.putIfAbsent(
-          m.deviceId(), (name == null || name.isBlank()) ? UNKNOWN_MEMBER : name);
+          UUID.fromString(m.tripMemberId()),
+          (name == null || name.isBlank()) ? UNKNOWN_MEMBER : name);
     }
     return displayNames;
   }

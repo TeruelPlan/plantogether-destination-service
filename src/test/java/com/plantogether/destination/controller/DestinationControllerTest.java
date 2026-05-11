@@ -69,7 +69,7 @@ class DestinationControllerTest {
         .estimatedBudget(new BigDecimal("1200.00"))
         .currency("EUR")
         .externalUrl("https://example.com")
-        .proposedByDeviceId(deviceId)
+        .proposedByMemberId(deviceId)
         .createdAt(Instant.now())
         .updatedAt(Instant.now())
         .votes(

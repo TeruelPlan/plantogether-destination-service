@@ -28,27 +28,23 @@ public class DestinationResponse {
   private BigDecimal estimatedBudget;
   private String currency;
   private String externalUrl;
-  // Legacy field — will be removed in Phase 3.
-  private UUID proposedByDeviceId;
   private UUID proposedByMemberId;
   private Instant createdAt;
   private Instant updatedAt;
   private DestinationStatus status;
   private Instant chosenAt;
-  // Legacy field — will be removed in Phase 3.
-  private UUID chosenByDeviceId;
   private UUID chosenByMemberId;
   private VoteAggregate votes;
 
   public static DestinationResponse from(
-      Destination entity, List<DestinationVote> votesForDestination, UUID viewerDeviceId) {
+      Destination entity, List<DestinationVote> votesForDestination, UUID viewerMemberId) {
     Map<Integer, Integer> rankVotes = new HashMap<>();
     DestinationVote myVote = null;
     for (DestinationVote v : votesForDestination) {
       if (v.getRank() != null) {
         rankVotes.merge(v.getRank(), 1, Integer::sum);
       }
-      if (viewerDeviceId != null && viewerDeviceId.equals(v.getDeviceId())) {
+      if (viewerMemberId != null && viewerMemberId.equals(v.getTripMemberId())) {
         myVote = v;
       }
     }
@@ -61,13 +57,11 @@ public class DestinationResponse {
         .estimatedBudget(entity.getEstimatedBudget())
         .currency(entity.getCurrency())
         .externalUrl(entity.getExternalUrl())
-        .proposedByDeviceId(entity.getProposedBy())
         .proposedByMemberId(entity.getProposedByTripMemberId())
         .createdAt(entity.getCreatedAt())
         .updatedAt(entity.getUpdatedAt())
         .status(entity.getStatus() == null ? DestinationStatus.PROPOSED : entity.getStatus())
         .chosenAt(entity.getChosenAt())
-        .chosenByDeviceId(entity.getChosenBy())
         .chosenByMemberId(entity.getChosenByTripMemberId())
         .votes(
             VoteAggregate.builder()
@@ -96,10 +90,8 @@ public class DestinationResponse {
     private int totalVotes;
     private Map<Integer, Integer> rankVotes;
 
-    /** True iff the calling device has any vote row on this destination. */
     private boolean myVoteCast;
 
-    /** The calling device's rank on this destination, or null if none / not in RANKING mode. */
     private Integer myRank;
 
     public static VoteAggregate empty() {
