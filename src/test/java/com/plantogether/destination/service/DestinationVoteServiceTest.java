@@ -55,21 +55,23 @@ class DestinationVoteServiceTest {
   private UUID tripId;
   private UUID destinationId;
   private String deviceId;
-  private UUID deviceUuid;
+  private UUID memberUuid;
+  private String memberId;
   private Destination destination;
 
   @BeforeEach
   void setUp() {
     tripId = UUID.randomUUID();
     destinationId = UUID.randomUUID();
-    deviceUuid = UUID.randomUUID();
-    deviceId = deviceUuid.toString();
+    deviceId = UUID.randomUUID().toString();
+    memberUuid = UUID.randomUUID();
+    memberId = memberUuid.toString();
     destination =
         Destination.builder()
             .id(destinationId)
             .tripId(tripId)
             .name("Paris")
-            .proposedBy(UUID.randomUUID())
+            .proposedByTripMemberId(UUID.randomUUID())
             .createdAt(Instant.now())
             .updatedAt(Instant.now())
             .build();
@@ -87,7 +89,7 @@ class DestinationVoteServiceTest {
             .id(UUID.randomUUID())
             .destinationId(destinationId)
             .tripId(tripId)
-            .deviceId(deviceUuid)
+            .tripMemberId(memberUuid)
             .rank(rank)
             .createdAt(Instant.now())
             .updatedAt(Instant.now())
@@ -99,9 +101,9 @@ class DestinationVoteServiceTest {
   void castVote_simple_deletesOtherTripVotes() {
     when(destinationRepository.findById(destinationId)).thenReturn(Optional.of(destination));
     when(tripClient.requireMembership(tripId.toString(), deviceId))
-        .thenReturn(new TripMembership(true, Role.PARTICIPANT));
+        .thenReturn(new TripMembership(true, Role.PARTICIPANT, memberId));
     stubConfig(VoteMode.SIMPLE);
-    when(voteRepository.findByDestinationIdAndDeviceId(destinationId, deviceUuid))
+    when(voteRepository.findByDestinationIdAndTripMemberId(destinationId, memberUuid))
         .thenReturn(Optional.empty());
     when(voteRepository.save(any(DestinationVote.class)))
         .thenAnswer(
@@ -113,16 +115,16 @@ class DestinationVoteServiceTest {
 
     service.castVote(destinationId, deviceId, CastVoteRequest.builder().build());
 
-    verify(voteRepository).deleteOtherTripVotes(tripId, deviceUuid, destinationId);
+    verify(voteRepository).deleteOtherTripVotes(tripId, memberUuid, destinationId);
   }
 
   @Test
   void castVote_simple_upsertsRankNull() {
     when(destinationRepository.findById(destinationId)).thenReturn(Optional.of(destination));
     when(tripClient.requireMembership(tripId.toString(), deviceId))
-        .thenReturn(new TripMembership(true, Role.PARTICIPANT));
+        .thenReturn(new TripMembership(true, Role.PARTICIPANT, memberId));
     stubConfig(VoteMode.SIMPLE);
-    when(voteRepository.findByDestinationIdAndDeviceId(destinationId, deviceUuid))
+    when(voteRepository.findByDestinationIdAndTripMemberId(destinationId, memberUuid))
         .thenReturn(Optional.empty());
     ArgumentCaptor<DestinationVote> captor = ArgumentCaptor.forClass(DestinationVote.class);
     when(voteRepository.save(captor.capture()))
@@ -145,9 +147,9 @@ class DestinationVoteServiceTest {
   void castVote_approval_multipleDestinations_allowed() {
     when(destinationRepository.findById(destinationId)).thenReturn(Optional.of(destination));
     when(tripClient.requireMembership(tripId.toString(), deviceId))
-        .thenReturn(new TripMembership(true, Role.PARTICIPANT));
+        .thenReturn(new TripMembership(true, Role.PARTICIPANT, memberId));
     stubConfig(VoteMode.APPROVAL);
-    when(voteRepository.findByDestinationIdAndDeviceId(destinationId, deviceUuid))
+    when(voteRepository.findByDestinationIdAndTripMemberId(destinationId, memberUuid))
         .thenReturn(Optional.empty());
     when(voteRepository.save(any(DestinationVote.class)))
         .thenAnswer(
@@ -167,7 +169,7 @@ class DestinationVoteServiceTest {
   void castVote_ranking_rankOutOfRange_throws400() {
     when(destinationRepository.findById(destinationId)).thenReturn(Optional.of(destination));
     when(tripClient.requireMembership(tripId.toString(), deviceId))
-        .thenReturn(new TripMembership(true, Role.PARTICIPANT));
+        .thenReturn(new TripMembership(true, Role.PARTICIPANT, memberId));
     stubConfig(VoteMode.RANKING);
     when(destinationRepository.countByTripId(tripId)).thenReturn(3L);
 
@@ -184,7 +186,7 @@ class DestinationVoteServiceTest {
   void castVote_ranking_missingRank_throws400() {
     when(destinationRepository.findById(destinationId)).thenReturn(Optional.of(destination));
     when(tripClient.requireMembership(tripId.toString(), deviceId))
-        .thenReturn(new TripMembership(true, Role.PARTICIPANT));
+        .thenReturn(new TripMembership(true, Role.PARTICIPANT, memberId));
     stubConfig(VoteMode.RANKING);
 
     assertThatThrownBy(
@@ -198,12 +200,12 @@ class DestinationVoteServiceTest {
   void castVote_ranking_collision_swapsOtherRowToNull() {
     when(destinationRepository.findById(destinationId)).thenReturn(Optional.of(destination));
     when(tripClient.requireMembership(tripId.toString(), deviceId))
-        .thenReturn(new TripMembership(true, Role.PARTICIPANT));
+        .thenReturn(new TripMembership(true, Role.PARTICIPANT, memberId));
     stubConfig(VoteMode.RANKING);
     when(destinationRepository.countByTripId(tripId)).thenReturn(5L);
 
-    when(voteRepository.clearRankForSwap(tripId, deviceUuid, 2, destinationId)).thenReturn(1);
-    when(voteRepository.findByDestinationIdAndDeviceId(destinationId, deviceUuid))
+    when(voteRepository.clearRankForSwap(tripId, memberUuid, 2, destinationId)).thenReturn(1);
+    when(voteRepository.findByDestinationIdAndTripMemberId(destinationId, memberUuid))
         .thenReturn(Optional.empty());
     when(voteRepository.save(any(DestinationVote.class)))
         .thenAnswer(
@@ -215,7 +217,7 @@ class DestinationVoteServiceTest {
 
     service.castVote(destinationId, deviceId, CastVoteRequest.builder().rank(2).build());
 
-    verify(voteRepository).clearRankForSwap(tripId, deviceUuid, 2, destinationId);
+    verify(voteRepository).clearRankForSwap(tripId, memberUuid, 2, destinationId);
     ArgumentCaptor<DestinationVote> captor = ArgumentCaptor.forClass(DestinationVote.class);
     verify(voteRepository).save(captor.capture());
     assertThat(captor.getValue().getDestinationId()).isEqualTo(destinationId);
@@ -226,7 +228,7 @@ class DestinationVoteServiceTest {
   void castVote_ranking_sameRowReSubmit_isIdempotentUpdate() {
     when(destinationRepository.findById(destinationId)).thenReturn(Optional.of(destination));
     when(tripClient.requireMembership(tripId.toString(), deviceId))
-        .thenReturn(new TripMembership(true, Role.PARTICIPANT));
+        .thenReturn(new TripMembership(true, Role.PARTICIPANT, memberId));
     stubConfig(VoteMode.RANKING);
     when(destinationRepository.countByTripId(tripId)).thenReturn(5L);
 
@@ -235,13 +237,13 @@ class DestinationVoteServiceTest {
             .id(UUID.randomUUID())
             .destinationId(destinationId)
             .tripId(tripId)
-            .deviceId(deviceUuid)
+            .tripMemberId(memberUuid)
             .rank(3)
             .createdAt(Instant.now())
             .updatedAt(Instant.now())
             .build();
-    when(voteRepository.clearRankForSwap(tripId, deviceUuid, 3, destinationId)).thenReturn(0);
-    when(voteRepository.findByDestinationIdAndDeviceId(destinationId, deviceUuid))
+    when(voteRepository.clearRankForSwap(tripId, memberUuid, 3, destinationId)).thenReturn(0);
+    when(voteRepository.findByDestinationIdAndTripMemberId(destinationId, memberUuid))
         .thenReturn(Optional.of(existing));
     when(voteRepository.save(any(DestinationVote.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -279,13 +281,14 @@ class DestinationVoteServiceTest {
   void retractVote_existingRow_deletesAndPublishes() {
     when(destinationRepository.findById(destinationId)).thenReturn(Optional.of(destination));
     when(tripClient.requireMembership(tripId.toString(), deviceId))
-        .thenReturn(new TripMembership(true, Role.PARTICIPANT));
-    when(voteRepository.deleteByDestinationIdAndDeviceId(destinationId, deviceUuid)).thenReturn(1);
+        .thenReturn(new TripMembership(true, Role.PARTICIPANT, memberId));
+    when(voteRepository.deleteByDestinationIdAndTripMemberId(destinationId, memberUuid))
+        .thenReturn(1);
     stubConfig(VoteMode.SIMPLE);
 
     service.retractVote(destinationId, deviceId);
 
-    verify(voteRepository).deleteByDestinationIdAndDeviceId(destinationId, deviceUuid);
+    verify(voteRepository).deleteByDestinationIdAndTripMemberId(destinationId, memberUuid);
     verify(eventPublisher).publishEvent(any(VoteCastInternalEvent.class));
   }
 
@@ -293,8 +296,9 @@ class DestinationVoteServiceTest {
   void retractVote_absentRow_isIdempotentNoEvent() {
     when(destinationRepository.findById(destinationId)).thenReturn(Optional.of(destination));
     when(tripClient.requireMembership(tripId.toString(), deviceId))
-        .thenReturn(new TripMembership(true, Role.PARTICIPANT));
-    when(voteRepository.deleteByDestinationIdAndDeviceId(destinationId, deviceUuid)).thenReturn(0);
+        .thenReturn(new TripMembership(true, Role.PARTICIPANT, memberId));
+    when(voteRepository.deleteByDestinationIdAndTripMemberId(destinationId, memberUuid))
+        .thenReturn(0);
 
     service.retractVote(destinationId, deviceId);
 
@@ -305,9 +309,9 @@ class DestinationVoteServiceTest {
   void castVote_simple_publishesYesEvent() {
     when(destinationRepository.findById(destinationId)).thenReturn(Optional.of(destination));
     when(tripClient.requireMembership(tripId.toString(), deviceId))
-        .thenReturn(new TripMembership(true, Role.PARTICIPANT));
+        .thenReturn(new TripMembership(true, Role.PARTICIPANT, memberId));
     stubConfig(VoteMode.SIMPLE);
-    when(voteRepository.findByDestinationIdAndDeviceId(destinationId, deviceUuid))
+    when(voteRepository.findByDestinationIdAndTripMemberId(destinationId, memberUuid))
         .thenReturn(Optional.empty());
     when(voteRepository.save(any(DestinationVote.class)))
         .thenAnswer(
@@ -330,7 +334,7 @@ class DestinationVoteServiceTest {
   void castVote_whenTripHasChosen_throws409() {
     when(destinationRepository.findById(destinationId)).thenReturn(Optional.of(destination));
     when(tripClient.requireMembership(tripId.toString(), deviceId))
-        .thenReturn(new TripMembership(true, Role.PARTICIPANT));
+        .thenReturn(new TripMembership(true, Role.PARTICIPANT, memberId));
     when(destinationRepository.findByTripIdAndStatus(tripId, DestinationStatus.CHOSEN))
         .thenReturn(Optional.of(new Destination()));
 
@@ -346,14 +350,14 @@ class DestinationVoteServiceTest {
   void retractVote_whenTripHasChosen_throws409() {
     when(destinationRepository.findById(destinationId)).thenReturn(Optional.of(destination));
     when(tripClient.requireMembership(tripId.toString(), deviceId))
-        .thenReturn(new TripMembership(true, Role.PARTICIPANT));
+        .thenReturn(new TripMembership(true, Role.PARTICIPANT, memberId));
     when(destinationRepository.findByTripIdAndStatus(tripId, DestinationStatus.CHOSEN))
         .thenReturn(Optional.of(new Destination()));
 
     assertThatThrownBy(() -> service.retractVote(destinationId, deviceId))
         .isInstanceOf(DestinationAlreadyChosenException.class);
 
-    verify(voteRepository, never()).deleteByDestinationIdAndDeviceId(any(), any());
+    verify(voteRepository, never()).deleteByDestinationIdAndTripMemberId(any(), any());
     verify(eventPublisher, never()).publishEvent(any(Object.class));
   }
 }

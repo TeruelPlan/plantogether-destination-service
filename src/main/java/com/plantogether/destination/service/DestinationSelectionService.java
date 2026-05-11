@@ -40,6 +40,7 @@ public class DestinationSelectionService {
     if (membership.role() != Role.ORGANIZER) {
       throw new AccessDeniedException("Only the trip organizer can select a destination");
     }
+    UUID memberUuid = UUID.fromString(membership.tripMemberId());
 
     if (destination.getStatus() == DestinationStatus.CHOSEN) {
       return DestinationResponse.from(destination);
@@ -53,22 +54,21 @@ public class DestinationSelectionService {
       Destination prev = previous.get();
       prev.setStatus(DestinationStatus.PROPOSED);
       prev.setChosenAt(null);
-      prev.setChosenBy(null);
+      prev.setChosenByTripMemberId(null);
       repository.save(prev);
       repository.flush();
       previousChosenId = prev.getId();
     }
 
     Instant chosenAt = Instant.now();
-    UUID deviceUuid = UUID.fromString(deviceId);
     destination.setStatus(DestinationStatus.CHOSEN);
     destination.setChosenAt(chosenAt);
-    destination.setChosenBy(deviceUuid);
+    destination.setChosenByTripMemberId(memberUuid);
     Destination saved = repository.save(destination);
 
     eventPublisher.publishEvent(
         new DestinationChosenInternalEvent(
-            tripId, saved.getId(), saved.getName(), deviceUuid, chosenAt, previousChosenId));
+            tripId, saved.getId(), saved.getName(), deviceId, chosenAt, previousChosenId));
 
     return DestinationResponse.from(saved);
   }

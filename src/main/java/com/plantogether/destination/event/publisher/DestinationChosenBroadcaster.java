@@ -23,7 +23,7 @@ public class DestinationChosenBroadcaster {
             .tripId(internal.tripId().toString())
             .destinationId(internal.destinationId().toString())
             .destinationName(internal.destinationName())
-            .chosenByDeviceId(internal.chosenByDeviceId().toString())
+            .chosenByDeviceId(internal.chosenByDeviceId())
             .chosenAt(internal.chosenAt())
             .previousChosenDestinationId(
                 internal.previousChosenDestinationId() == null

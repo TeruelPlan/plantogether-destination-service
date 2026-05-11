@@ -20,6 +20,8 @@ import com.plantogether.destination.repository.DestinationRepository;
 import com.plantogether.destination.service.DestinationCommentService;
 import com.plantogether.trip.grpc.GetTripMembersRequest;
 import com.plantogether.trip.grpc.GetTripMembersResponse;
+import com.plantogether.trip.grpc.IsMemberRequest;
+import com.plantogether.trip.grpc.IsMemberResponse;
 import com.plantogether.trip.grpc.TripMemberProto;
 import com.plantogether.trip.grpc.TripServiceGrpc;
 import io.grpc.ManagedChannel;
@@ -50,6 +52,7 @@ class CommentMembershipGateTest {
 
   private static final String SERVER_NAME = "test-trip-grpc-" + UUID.randomUUID();
   private static final String DEVICE_ID = UUID.randomUUID().toString();
+  private static final String MEMBER_ID = UUID.randomUUID().toString();
 
   private Server mockTripServer;
   private ManagedChannel channel;
@@ -86,7 +89,7 @@ class CommentMembershipGateTest {
             .id(destinationId)
             .tripId(tripId)
             .name("Paris")
-            .proposedBy(UUID.randomUUID())
+            .proposedByTripMemberId(UUID.randomUUID())
             .createdAt(Instant.now())
             .updatedAt(Instant.now())
             .build();
@@ -197,6 +200,18 @@ class CommentMembershipGateTest {
     }
 
     @Override
+    public void isMember(
+        IsMemberRequest request, StreamObserver<IsMemberResponse> responseObserver) {
+      IsMemberResponse.Builder resp =
+          IsMemberResponse.newBuilder().setIsMember(memberResult).setRole("PARTICIPANT");
+      if (memberResult) {
+        resp.setTripMemberId(MEMBER_ID);
+      }
+      responseObserver.onNext(resp.build());
+      responseObserver.onCompleted();
+    }
+
+    @Override
     public void getTripMembers(
         GetTripMembersRequest request, StreamObserver<GetTripMembersResponse> obs) {
       getTripMembersCalls++;
@@ -204,14 +219,14 @@ class CommentMembershipGateTest {
       if (memberResult) {
         resp.addMembers(
             TripMemberProto.newBuilder()
-                .setDeviceId(DEVICE_ID)
+                .setTripMemberId(MEMBER_ID)
                 .setDisplayName("Alice")
                 .setRole("PARTICIPANT")
                 .build());
       } else {
         resp.addMembers(
             TripMemberProto.newBuilder()
-                .setDeviceId(UUID.randomUUID().toString())
+                .setTripMemberId(UUID.randomUUID().toString())
                 .setDisplayName("Someone else")
                 .setRole("PARTICIPANT")
                 .build());

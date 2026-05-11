@@ -12,6 +12,7 @@ import com.plantogether.common.exception.ResourceNotFoundException;
 import com.plantogether.common.grpc.Role;
 import com.plantogether.common.grpc.TripClient;
 import com.plantogether.common.grpc.TripMember;
+import com.plantogether.common.grpc.TripMembership;
 import com.plantogether.destination.dto.AddCommentRequest;
 import com.plantogether.destination.dto.CommentResponse;
 import com.plantogether.destination.event.DestinationCommentAddedInternalEvent;
@@ -44,7 +45,8 @@ class DestinationCommentServiceTest {
 
   private UUID tripId;
   private UUID destinationId;
-  private UUID deviceUuid;
+  private UUID memberUuid;
+  private String memberId;
   private String deviceId;
   private Destination destination;
 
@@ -52,21 +54,22 @@ class DestinationCommentServiceTest {
   void setUp() {
     tripId = UUID.randomUUID();
     destinationId = UUID.randomUUID();
-    deviceUuid = UUID.randomUUID();
-    deviceId = deviceUuid.toString();
+    memberUuid = UUID.randomUUID();
+    memberId = memberUuid.toString();
+    deviceId = UUID.randomUUID().toString();
     destination =
         Destination.builder()
             .id(destinationId)
             .tripId(tripId)
             .name("Paris")
-            .proposedBy(UUID.randomUUID())
+            .proposedByTripMemberId(UUID.randomUUID())
             .createdAt(Instant.now())
             .updatedAt(Instant.now())
             .build();
   }
 
-  private TripMember member(UUID id, String name) {
-    return new TripMember(id, name, Role.PARTICIPANT);
+  private TripMember member(String id, String name) {
+    return new TripMember(name, Role.PARTICIPANT, id);
   }
 
   private DestinationComment persistedComment(UUID id, String content, Instant createdAt) {
@@ -74,7 +77,7 @@ class DestinationCommentServiceTest {
         .id(id)
         .destinationId(destinationId)
         .tripId(tripId)
-        .deviceId(deviceUuid)
+        .tripMemberId(memberUuid)
         .content(content)
         .createdAt(createdAt)
         .build();
@@ -83,8 +86,10 @@ class DestinationCommentServiceTest {
   @Test
   void addComment_validMember_persistsAndReturnsResponseWithDisplayName() {
     when(destinationRepository.findById(destinationId)).thenReturn(Optional.of(destination));
+    when(tripClient.requireMembership(tripId.toString(), deviceId))
+        .thenReturn(new TripMembership(true, Role.PARTICIPANT, memberId));
     when(tripClient.getTripMembers(tripId.toString()))
-        .thenReturn(List.of(member(deviceUuid, "Alice")));
+        .thenReturn(List.of(member(memberId, "Alice")));
     UUID commentId = UUID.randomUUID();
     Instant now = Instant.now();
     when(commentRepository.save(any(DestinationComment.class)))
@@ -101,7 +106,7 @@ class DestinationCommentServiceTest {
             destinationId, deviceId, AddCommentRequest.builder().content("Looks great!").build());
 
     assertThat(resp.getId()).isEqualTo(commentId);
-    assertThat(resp.getAuthorDeviceId()).isEqualTo(deviceUuid);
+    assertThat(resp.getAuthorMemberId()).isEqualTo(memberUuid);
     assertThat(resp.getAuthorDisplayName()).isEqualTo("Alice");
     assertThat(resp.getContent()).isEqualTo("Looks great!");
   }
@@ -109,8 +114,8 @@ class DestinationCommentServiceTest {
   @Test
   void addComment_nonMember_throwsAccessDenied() {
     when(destinationRepository.findById(destinationId)).thenReturn(Optional.of(destination));
-    when(tripClient.getTripMembers(tripId.toString()))
-        .thenReturn(List.of(member(UUID.randomUUID(), "Someone else")));
+    when(tripClient.requireMembership(tripId.toString(), deviceId))
+        .thenThrow(new AccessDeniedException("Device is not a member of this trip"));
 
     assertThatThrownBy(
             () ->
@@ -135,8 +140,10 @@ class DestinationCommentServiceTest {
   @Test
   void addComment_publishesInternalEventOnce() {
     when(destinationRepository.findById(destinationId)).thenReturn(Optional.of(destination));
+    when(tripClient.requireMembership(tripId.toString(), deviceId))
+        .thenReturn(new TripMembership(true, Role.PARTICIPANT, memberId));
     when(tripClient.getTripMembers(tripId.toString()))
-        .thenReturn(List.of(member(deviceUuid, "Alice")));
+        .thenReturn(List.of(member(memberId, "Alice")));
     UUID commentId = UUID.randomUUID();
     Instant ts = Instant.parse("2026-04-25T10:00:00Z");
     when(commentRepository.save(any(DestinationComment.class)))
@@ -157,13 +164,15 @@ class DestinationCommentServiceTest {
     assertThat(e.tripId()).isEqualTo(tripId);
     assertThat(e.destinationId()).isEqualTo(destinationId);
     assertThat(e.commentId()).isEqualTo(commentId);
-    assertThat(e.authorDeviceId()).isEqualTo(deviceUuid);
+    assertThat(e.authorMemberId()).isEqualTo(memberUuid);
     assertThat(e.occurredAt()).isEqualTo(ts);
   }
 
   @Test
   void listComments_returnsComments_orderedAsRepositoryReturns() {
     when(destinationRepository.findById(destinationId)).thenReturn(Optional.of(destination));
+    when(tripClient.requireMembership(tripId.toString(), deviceId))
+        .thenReturn(new TripMembership(true, Role.PARTICIPANT, memberId));
     Instant t = Instant.parse("2026-04-25T10:00:00Z");
     DestinationComment c1 = persistedComment(UUID.randomUUID(), "first", t);
     DestinationComment c2 = persistedComment(UUID.randomUUID(), "second", t);
@@ -171,7 +180,7 @@ class DestinationCommentServiceTest {
     when(commentRepository.findByDestinationIdOrderByCreatedAtAscIdAsc(destinationId))
         .thenReturn(List.of(c1, c2, c3));
     when(tripClient.getTripMembers(tripId.toString()))
-        .thenReturn(List.of(member(deviceUuid, "Alice")));
+        .thenReturn(List.of(member(memberId, "Alice")));
 
     List<CommentResponse> result = service.listComments(destinationId, deviceId);
 
@@ -184,8 +193,8 @@ class DestinationCommentServiceTest {
   @Test
   void listComments_nonMember_throwsAccessDenied() {
     when(destinationRepository.findById(destinationId)).thenReturn(Optional.of(destination));
-    when(tripClient.getTripMembers(tripId.toString()))
-        .thenReturn(List.of(member(UUID.randomUUID(), "Someone else")));
+    when(tripClient.requireMembership(tripId.toString(), deviceId))
+        .thenThrow(new AccessDeniedException("Device is not a member of this trip"));
 
     assertThatThrownBy(() -> service.listComments(destinationId, deviceId))
         .isInstanceOf(AccessDeniedException.class);
@@ -204,10 +213,12 @@ class DestinationCommentServiceTest {
   @Test
   void listComments_emptyList_returnsEmpty() {
     when(destinationRepository.findById(destinationId)).thenReturn(Optional.of(destination));
+    when(tripClient.requireMembership(tripId.toString(), deviceId))
+        .thenReturn(new TripMembership(true, Role.PARTICIPANT, memberId));
     when(commentRepository.findByDestinationIdOrderByCreatedAtAscIdAsc(destinationId))
         .thenReturn(List.of());
     when(tripClient.getTripMembers(tripId.toString()))
-        .thenReturn(List.of(member(deviceUuid, "Alice")));
+        .thenReturn(List.of(member(memberId, "Alice")));
 
     List<CommentResponse> result = service.listComments(destinationId, deviceId);
 

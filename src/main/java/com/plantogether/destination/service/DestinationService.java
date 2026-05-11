@@ -28,7 +28,8 @@ public class DestinationService {
   @Transactional
   public DestinationResponse proposeDestination(
       UUID tripId, String deviceId, ProposeDestinationRequest req) {
-    tripClient.requireMembership(tripId.toString(), deviceId);
+    var membership = tripClient.requireMembership(tripId.toString(), deviceId);
+    UUID memberUuid = UUID.fromString(membership.tripMemberId());
 
     requireNotChosen(tripId);
 
@@ -41,7 +42,7 @@ public class DestinationService {
             .estimatedBudget(req.getEstimatedBudget())
             .currency(req.getCurrency())
             .externalUrl(req.getExternalUrl())
-            .proposedBy(UUID.fromString(deviceId))
+            .proposedByTripMemberId(memberUuid)
             .build();
 
     Destination saved = repository.save(entity);
@@ -50,7 +51,9 @@ public class DestinationService {
 
   @Transactional(readOnly = true)
   public List<DestinationResponse> listDestinations(UUID tripId, String deviceId) {
-    tripClient.requireMembership(tripId.toString(), deviceId);
+    var membership = tripClient.requireMembership(tripId.toString(), deviceId);
+    UUID viewerMemberId = UUID.fromString(membership.tripMemberId());
+
     List<Destination> destinations = repository.findByTripIdOrderByCreatedAtDesc(tripId);
     if (destinations.isEmpty()) {
       return List.of();
@@ -59,12 +62,11 @@ public class DestinationService {
     Map<UUID, List<DestinationVote>> votesByDestination =
         voteRepository.findByDestinationIdIn(ids).stream()
             .collect(Collectors.groupingBy(DestinationVote::getDestinationId));
-    UUID deviceUuid = UUID.fromString(deviceId);
     return destinations.stream()
         .map(
             d ->
                 DestinationResponse.from(
-                    d, votesByDestination.getOrDefault(d.getId(), List.of()), deviceUuid))
+                    d, votesByDestination.getOrDefault(d.getId(), List.of()), viewerMemberId))
         .toList();
   }
 

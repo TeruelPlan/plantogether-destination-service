@@ -46,12 +46,12 @@ class DestinationVoteBroadcasterTest {
   void publishesVoteCastEvent_onCommit() {
     UUID tripId = UUID.randomUUID();
     UUID destinationId = UUID.randomUUID();
-    UUID deviceId = UUID.randomUUID();
+    UUID memberId = UUID.randomUUID();
 
     transactionTemplate.executeWithoutResult(
         status -> {
           eventPublisher.publishEvent(
-              new VoteCastInternalEvent(tripId, destinationId, deviceId, VoteMode.SIMPLE, "YES"));
+              new VoteCastInternalEvent(tripId, destinationId, memberId, VoteMode.SIMPLE, "YES"));
           // Before commit: no message sent yet
           verify(rabbitTemplate, never())
               .convertAndSend(
@@ -68,7 +68,7 @@ class DestinationVoteBroadcasterTest {
     VoteCastEvent sent = captor.getValue();
     assertThat(sent.getTripId()).isEqualTo(tripId.toString());
     assertThat(sent.getDestinationId()).isEqualTo(destinationId.toString());
-    assertThat(sent.getDeviceId()).isEqualTo(deviceId.toString());
+    assertThat(sent.getTripMemberId()).isEqualTo(memberId.toString());
     assertThat(sent.getVoteMode()).isEqualTo("SIMPLE");
     assertThat(sent.getVoteValue()).isEqualTo("YES");
     assertThat(sent.getOccurredAt()).isNotNull();
@@ -78,12 +78,12 @@ class DestinationVoteBroadcasterTest {
   void noMessageSent_whenTransactionRollsBack() {
     UUID tripId = UUID.randomUUID();
     UUID destinationId = UUID.randomUUID();
-    UUID deviceId = UUID.randomUUID();
+    UUID memberId = UUID.randomUUID();
 
     transactionTemplate.executeWithoutResult(
         status -> {
           eventPublisher.publishEvent(
-              new VoteCastInternalEvent(tripId, destinationId, deviceId, VoteMode.RANKING, "1"));
+              new VoteCastInternalEvent(tripId, destinationId, memberId, VoteMode.RANKING, "1"));
           status.setRollbackOnly();
         });
 

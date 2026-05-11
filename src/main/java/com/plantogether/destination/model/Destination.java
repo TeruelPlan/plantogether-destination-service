@@ -55,8 +55,8 @@ public class Destination {
   @Column(name = "external_url", length = 512)
   private String externalUrl;
 
-  @Column(name = "proposed_by", nullable = false)
-  private UUID proposedBy;
+  @Column(name = "proposed_by_trip_member_id", nullable = false)
+  private UUID proposedByTripMemberId;
 
   @Column(name = "created_at", nullable = false)
   private Instant createdAt;
@@ -71,8 +71,8 @@ public class Destination {
   @Column(name = "chosen_at")
   private Instant chosenAt;
 
-  @Column(name = "chosen_by")
-  private UUID chosenBy;
+  @Column(name = "chosen_by_trip_member_id")
+  private UUID chosenByTripMemberId;
 
   @PrePersist
   void onCreate() {

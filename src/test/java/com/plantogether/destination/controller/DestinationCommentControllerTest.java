@@ -45,7 +45,7 @@ class DestinationCommentControllerTest {
     return CommentResponse.builder()
         .id(UUID.randomUUID())
         .destinationId(destinationId)
-        .authorDeviceId(deviceId)
+        .authorMemberId(deviceId)
         .authorDisplayName("Alice")
         .content(content)
         .createdAt(Instant.parse("2026-04-25T10:00:00Z"))

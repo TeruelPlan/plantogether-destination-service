@@ -24,7 +24,7 @@ public class DestinationCommentBroadcaster {
             .tripId(e.tripId())
             .destinationId(e.destinationId())
             .commentId(e.commentId())
-            .authorDeviceId(e.authorDeviceId())
+            .authorMemberId(e.authorMemberId())
             .occurredAt(e.occurredAt())
             .build();
     rabbitTemplate.convertAndSend(

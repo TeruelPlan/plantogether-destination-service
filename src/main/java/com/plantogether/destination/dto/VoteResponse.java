@@ -9,7 +9,7 @@ import lombok.*;
 @AllArgsConstructor
 public class VoteResponse {
 
-  private UUID voterDeviceId;
+  private UUID voterMemberId;
   private UUID destinationId;
   private Integer rank;
 }
